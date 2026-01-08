@@ -63,25 +63,40 @@ class UserManagementController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $user = User::withCount([
-            'chatsAsMale',
-            'chatsAsFemale',
-            'transactions',
-            'reportsMade',
-            'reportsReceived',
-        ])->find($id);
+        try {
+            $user = User::find($id);
 
-        if (!$user) {
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not found',
+                ], 404);
+            }
+
+            // Load counts separately to handle potential relationship issues gracefully
+            $counts = ['chatsAsMale', 'chatsAsFemale', 'transactions', 'reportsMade', 'reportsReceived'];
+            $existingRelationships = [];
+
+            foreach ($counts as $relation) {
+                if (method_exists($user, $relation)) {
+                    $existingRelationships[] = $relation;
+                }
+            }
+
+            if (!empty($existingRelationships)) {
+                $user->loadCount($existingRelationships);
+            }
+
+            return response()->json([
+                'success' => true,
+                'user' => $this->formatUserDetails($user),
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'User not found',
-            ], 404);
+                'message' => 'Error loading user: ' . $e->getMessage(),
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'user' => $this->formatUserDetails($user),
-        ]);
     }
 
     /**

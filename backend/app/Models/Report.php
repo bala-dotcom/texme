@@ -52,7 +52,7 @@ class Report extends Model
         return $this->status === 'pending';
     }
 
-    public function markAsReviewed(string $notes = null): void
+    public function markAsReviewed(?string $notes = null): void
     {
         $this->status = 'reviewed';
         $this->admin_notes = $notes;
@@ -60,7 +60,7 @@ class Report extends Model
         $this->save();
     }
 
-    public function takeAction(string $notes = null): void
+    public function takeAction(?string $notes = null): void
     {
         $this->status = 'action_taken';
         $this->admin_notes = $notes;
@@ -68,7 +68,7 @@ class Report extends Model
         $this->save();
     }
 
-    public function dismiss(string $notes = null): void
+    public function dismiss(?string $notes = null): void
     {
         $this->status = 'dismissed';
         $this->admin_notes = $notes;

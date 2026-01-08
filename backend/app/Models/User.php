@@ -113,6 +113,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Reports made by this user
+     */
+    public function reportsMade(): HasMany
+    {
+        return $this->hasMany(Report::class, 'reported_by');
+    }
+
+    /**
+     * Reports received by this user
+     */
+    public function reportsReceived(): HasMany
+    {
+        return $this->hasMany(Report::class, 'reported_user');
+    }
+
+    /**
      * Active chat
      */
     public function activeChat(): BelongsTo
@@ -154,7 +170,7 @@ class User extends Authenticatable
         if ($this->status !== 'busy' || $this->active_chat_id === null) {
             return false;
         }
-        
+
         // Verify the chat is actually active
         $chat = Chat::find($this->active_chat_id);
         if (!$chat || $chat->status !== 'active') {
@@ -164,7 +180,7 @@ class User extends Authenticatable
             $this->save();
             return false;
         }
-        
+
         return true;
     }
 
@@ -176,13 +192,13 @@ class User extends Authenticatable
         if ($this->isMale()) {
             $setting = Setting::where('key', 'female_earning_ratio')->first();
             $ratio = $setting ? (float) $setting->value : 0.36;
-            
+
             // Calculate how many minutes of chat possible
             $coinsPerMin = Setting::where('key', 'coins_per_minute')->first();
             $coinsPerMinute = $coinsPerMin ? (int) $coinsPerMin->value : 10;
-            
+
             $possibleMinutes = floor($this->coin_balance / $coinsPerMinute);
-            
+
             // Calculate earning (coin_value * ratio)
             // Assuming 40 coins = ₹25, so 1 coin = ₹0.625
             $coinValue = 0.625;
