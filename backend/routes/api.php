@@ -139,6 +139,13 @@ Route::prefix('admin')->group(function () {
             Route::post('/{id}/add-coins', [UserManagementController::class, 'addCoins']);
         });
 
+        // Voice Verifications
+        Route::prefix('voice-verifications')->group(function () {
+            Route::get('/', [UserManagementController::class, 'voiceVerifications']);
+            Route::post('/{id}/verify', [UserManagementController::class, 'verifyVoice']);
+            Route::post('/{id}/reject', [UserManagementController::class, 'rejectVoice']);
+        });
+
         // Withdrawals
         Route::prefix('withdrawals')->group(function () {
             Route::get('/', [WithdrawalController::class, 'index']);

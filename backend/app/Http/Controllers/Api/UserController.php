@@ -27,9 +27,8 @@ class UserController extends Controller
 
         $females = User::where('user_type', 'female')
             ->where('account_status', 'active')
-            ->where('is_verified', true)
-            ->where('status', 'online') // Only show online females
             ->where('id', '!=', $user->id)
+            ->orderByRaw("CASE WHEN status = 'online' THEN 0 ELSE 1 END")
             ->orderBy('last_seen', 'desc')
             ->paginate(20);
 
@@ -277,7 +276,7 @@ class UserController extends Controller
             'name' => $user->name,
             'age' => $user->age,
             'bio' => $user->bio,
-            'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
+            'avatar' => $user->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : asset('storage/' . $user->avatar)) : null,
             'location' => $user->location,
             'status' => $user->status,
             'is_available' => $user->status === 'online',

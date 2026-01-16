@@ -10,6 +10,7 @@ import 'screens/home/home_screen.dart';
 import 'services/notification_service.dart';
 import 'services/fcm_service.dart';
 import 'services/online_foreground_service.dart';
+import 'screens/auth/pending_verification_screen.dart';
 
 // Global navigator key for navigating from anywhere
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -134,10 +135,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // Navigate based on auth state
     if (authProvider.isLoggedIn) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      final user = authProvider.user;
+      if (user?.isFemale == true && user?.voiceStatus != 'verified') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     } else {
       Navigator.pushReplacement(
         context,

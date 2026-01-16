@@ -4,6 +4,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/widgets.dart';
 import '../home/home_screen.dart';
+import 'voice_verification_screen.dart';
 
 /// Registration Screen - Simplified
 /// Male: No fields required (auto-generated name)
@@ -213,8 +214,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     // Register Button
                     PrimaryButton(
-                      text: isFemale ? 'Complete Registration' : 'Continue',
-                      onPressed: _register,
+                      text: 'Continue',
+                      onPressed: () {
+                        if (isFemale) {
+                          if (!_formKey.currentState!.validate()) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => VoiceVerificationScreen(
+                                userType: widget.userType,
+                                bio: _bioController.text.trim(),
+                                avatarUrl: _avatarOptions[_selectedAvatarIndex],
+                              ),
+                            ),
+                          );
+                        } else {
+                          _register();
+                        }
+                      },
                       isLoading: auth.isLoading,
                     ),
                   ],

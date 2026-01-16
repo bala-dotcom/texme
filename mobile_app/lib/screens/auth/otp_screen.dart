@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/common/widgets.dart';
 import 'gender_selection_screen.dart';
 import '../home/home_screen.dart';
+import 'pending_verification_screen.dart';
 
 /// OTP Verification Screen
 class OtpScreen extends StatefulWidget {
@@ -73,12 +74,21 @@ class _OtpScreenState extends State<OtpScreen> {
           MaterialPageRoute(builder: (_) => const GenderSelectionScreen()),
         );
       } else {
-        // Existing user - go to home
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
+        // Existing user
+        final user = authProvider.user;
+        if (user?.isFemale == true && user?.voiceStatus != 'verified') {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),
+            (route) => false,
+          );
+        } else {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

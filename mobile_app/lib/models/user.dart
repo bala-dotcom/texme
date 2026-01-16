@@ -28,6 +28,8 @@ class User {
   final String accountStatus;
   final bool isVerified;
   final bool isInChat;
+  final String? voiceStatus;
+  final String? voiceVerificationUrl;
 
   // Male specific
   final int? coinBalance;
@@ -54,6 +56,8 @@ class User {
     required this.accountStatus,
     required this.isVerified,
     required this.isInChat,
+    this.voiceStatus,
+    this.voiceVerificationUrl,
     this.coinBalance,
     this.totalCoinsPurchased,
     this.totalCoinsSpent,
@@ -85,6 +89,8 @@ class User {
       accountStatus: json['account_status'] ?? 'pending',
       isVerified: json['is_verified'] ?? false,
       isInChat: json['is_in_chat'] ?? false,
+      voiceStatus: json['voice_status'],
+      voiceVerificationUrl: json['voice_verification_url'],
       coinBalance: _parseInt(json['coin_balance']),
       totalCoinsPurchased: _parseInt(json['total_coins_purchased']),
       totalCoinsSpent: _parseInt(json['total_coins_spent']),
@@ -110,6 +116,8 @@ class User {
       'account_status': accountStatus,
       'is_verified': isVerified,
       'is_in_chat': isInChat,
+      'voice_status': voiceStatus,
+      'voice_verification_url': voiceVerificationUrl,
       'coin_balance': coinBalance,
       'total_coins_purchased': totalCoinsPurchased,
       'total_coins_spent': totalCoinsSpent,

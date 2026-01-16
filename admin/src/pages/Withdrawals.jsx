@@ -118,6 +118,7 @@ export default function Withdrawals() {
     const getStatusBadge = (status) => {
         const config = {
             pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: Clock },
+            processing: { bg: 'bg-blue-100', text: 'text-blue-700', icon: CheckCircle },
             approved: { bg: 'bg-blue-100', text: 'text-blue-700', icon: CheckCircle },
             completed: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
             rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle },
@@ -137,7 +138,7 @@ export default function Withdrawals() {
 
             {/* Filter Tabs */}
             <div className="flex gap-2 border-b border-gray-200">
-                {['pending', 'approved', 'completed', 'rejected'].map((status) => (
+                {['pending', 'processing', 'completed', 'rejected'].map((status) => (
                     <button
                         key={status}
                         onClick={() => { setFilter(status); setPagination(p => ({ ...p, page: 1 })); }}
@@ -146,7 +147,7 @@ export default function Withdrawals() {
                             : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {status === 'processing' ? 'Approved' : status.charAt(0).toUpperCase() + status.slice(1)}
                     </button>
                 ))}
             </div>
@@ -228,7 +229,7 @@ export default function Withdrawals() {
                                                             </button>
                                                         </>
                                                     )}
-                                                    {withdrawal.status === 'approved' && (
+                                                    {withdrawal.status === 'processing' && (
                                                         <button
                                                             onClick={() => setCompleteModal(withdrawal)}
                                                             className="px-3 py-1.5 bg-[#6C5CE7] text-white text-sm font-medium rounded-lg hover:bg-[#5A4BD5]"

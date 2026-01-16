@@ -61,25 +61,36 @@ class AuthProvider extends ChangeNotifier {
     _isInitialized = true;
   }
 
-  /// Send OTP to phone
+  /// Send OTP to phone (via Backend API with 2Factor.in)
   Future<bool> sendOtp(String phone) async {
     _setLoading(true);
     _clearError();
 
-    final response = await _api.sendOtp(phone);
-
-    if (response.success) {
-      _phone = phone;
-      _setLoading(false);
-      return true;
-    } else {
-      _setError(response.message ?? 'Failed to send OTP');
+    try {
+      debugPrint('Sending OTP to: $phone via backend (2Factor.in)');
+      
+      final response = await _api.sendOtp(phone);
+      
+      if (response.success) {
+        _phone = phone;
+        debugPrint('OTP sent successfully!');
+        _setLoading(false);
+        return true;
+      } else {
+        final errorMsg = response.message ?? 'Failed to send OTP';
+        _setError(errorMsg);
+        _setLoading(false);
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Send OTP Exception: $e');
+      _setError('Error sending OTP: $e');
       _setLoading(false);
       return false;
     }
   }
 
-  /// Verify OTP
+  /// Verify OTP entered by user
   Future<bool> verifyOtp(String otp) async {
     if (_phone == null) {
       _setError('Phone number not set');
@@ -89,25 +100,32 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     _clearError();
 
-    final response = await _api.verifyOtp(_phone!, otp);
+    try {
+      final response = await _api.verifyOtp(phone: _phone!, otp: otp);
 
-    if (response.success) {
-      final data = response.data;
-      _isNewUser = data['is_new_user'] ?? false;
+      if (response.success) {
+        final data = response.data;
+        _isNewUser = data['is_new_user'] ?? false;
 
-      if (_isNewUser) {
-        // Need to register
-        _registrationToken = data['registration_token'];
-        _setLoading(false);
-        return true;
+        if (_isNewUser) {
+          // Need to register
+          _registrationToken = data['registration_token'];
+          _setLoading(false);
+          return true;
+        } else {
+          // Existing user - logged in
+          await _handleLogin(data);
+          _setLoading(false);
+          return true;
+        }
       } else {
-        // Existing user - logged in
-        await _handleLogin(data);
+        _setError(response.message ?? 'Invalid OTP');
         _setLoading(false);
-        return true;
+        return false;
       }
-    } else {
-      _setError(response.message ?? 'Invalid OTP');
+    } catch (e) {
+      debugPrint('Verify OTP error: $e');
+      _setError('Verification failed');
       _setLoading(false);
       return false;
     }
@@ -121,6 +139,7 @@ class AuthProvider extends ChangeNotifier {
     String? bio,
     File? avatar,
     String? avatarUrl,
+    File? voiceVerification,
   }) async {
     if (_registrationToken == null) {
       _setError('Registration token expired');
@@ -138,6 +157,7 @@ class AuthProvider extends ChangeNotifier {
       bio: bio,
       avatar: avatar,
       avatarUrl: avatarUrl,
+      voiceVerification: voiceVerification,
     );
 
     if (response.success) {

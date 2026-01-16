@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import 'male_home_screen.dart';
 import 'female_home_screen.dart';
 import '../auth/phone_login_screen.dart';
+import '../auth/pending_verification_screen.dart';
 
 /// Home Screen - Routes to Male or Female home based on user type
 class HomeScreen extends StatefulWidget {
@@ -29,6 +30,15 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
+      );
+      return;
+    }
+
+    // If female and not verified, go to pending
+    if (auth.user?.isFemale == true && auth.user?.voiceStatus != 'verified') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),
       );
     }
   }

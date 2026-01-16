@@ -90,7 +90,7 @@ class AppConfig {
   static const String userKey = 'user_data';
   static const String userTypeKey = 'user_type';
 
-  // Defaults
-  static const int otpLength = 6;
-  static const int otpResendSeconds = 60;
+  // MSG91 SendOTP Configuration
+  static const String msg91WidgetId = '366168747878333233323639';
+  static const String msg91AuthToken = '487192TsQlWeZ2ff69601763P1';
 }

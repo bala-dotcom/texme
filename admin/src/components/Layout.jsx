@@ -14,12 +14,14 @@ import {
     X,
     Bell,
     ChevronDown,
+    Mic,
 } from 'lucide-react';
 
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Pending Approval', href: '/pending-females', icon: UserCheck },
+    { name: 'Voice Verifications', href: '/voice-verifications', icon: Mic },
     { name: 'Withdrawals', href: '/withdrawals', icon: Wallet },
     { name: 'Reports', href: '/reports', icon: Flag },
     { name: 'Transactions', href: '/transactions', icon: CreditCard },

@@ -4,7 +4,12 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/widgets.dart';
+import '../profile/terms_of_service_screen.dart';
+import '../profile/privacy_policy_screen.dart';
+import 'gender_selection_screen.dart';
+import '../home/home_screen.dart';
 import 'otp_screen.dart';
+import 'pending_verification_screen.dart';
 
 /// Phone Login Screen
 class PhoneLoginScreen extends StatefulWidget {
@@ -34,21 +39,51 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   Future<void> _sendOtp() async {
     if (!_isValid) return;
 
+    final phone = _phoneController.text.trim();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.sendOtp(_phoneController.text.trim());
+    final result = await authProvider.sendOtp(phone);
 
-    if (success && mounted) {
+    if (!mounted) return;
+
+    if (result) {
+      // OTP sent successfully, navigate to verification screen
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const OtpScreen()),
       );
-    } else if (mounted) {
+    } else {
+      // Error sending OTP
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error ?? 'Failed to send OTP'),
           backgroundColor: AppColors.error,
         ),
       );
+    }
+  }
+
+  void _handleSuccess() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isNewUser) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const GenderSelectionScreen()),
+      );
+    } else {
+      final user = authProvider.user;
+      if (user?.isFemale == true && user?.voiceStatus != 'verified') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),
+          (route) => false,
+        );
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
     }
   }
 
@@ -138,11 +173,6 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                 horizontal: AppSpacing.md,
                                 vertical: AppSpacing.md,
                               ),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: AppColors.border),
-                                ),
-                              ),
                               child: Row(
                                 children: [
                                   Text(
@@ -220,7 +250,10 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                         children: [
                           GestureDetector(
                             onTap: () {
-                              // TODO: Open Terms
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const TermsOfServiceScreen()),
+                              );
                             },
                             child: Text(
                               'Terms of Service',
@@ -236,7 +269,10 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              // TODO: Open Privacy
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+                              );
                             },
                             child: Text(
                               'Privacy Policy',

@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import PendingFemales from './pages/PendingFemales';
+import VoiceVerifications from './pages/VoiceVerifications';
 import Withdrawals from './pages/Withdrawals';
 import Reports from './pages/Reports';
 import Transactions from './pages/Transactions';
@@ -83,6 +84,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <PendingFemales />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/voice-verifications"
+        element={
+          <ProtectedRoute>
+            <VoiceVerifications />
           </ProtectedRoute>
         }
       />

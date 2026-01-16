@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:680370529318:android:4dab5b95df0c13fa34b2e7",
+        "android_client_info": {
+          "package_name": "com.texme.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBgD73oUHTecvzch4sCVBLQK1UCGIAAmLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:680370529318:android:61e83b8e44e015ff34b2e7",
         "android_client_info": {
           "package_name": "com.texme.texme"

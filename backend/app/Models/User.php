@@ -44,6 +44,8 @@ class User extends Authenticatable
         'is_verified',
         'last_seen',
         'active_chat_id',
+        'voice_status',
+        'voice_verification_path',
     ];
 
     /**

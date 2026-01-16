@@ -127,9 +127,9 @@ class WithdrawalController extends Controller
             $withdrawal->admin_notes = $request->notes;
             $withdrawal->save();
 
-            // Deduct from user balance
+            // Note: Balance is already deducted when user requests withdrawal
+            // Only update total_withdrawn here
             $user = $withdrawal->user;
-            $user->earning_balance -= $withdrawal->amount;
             $user->total_withdrawn += $withdrawal->amount;
             $user->save();
 
@@ -179,10 +179,10 @@ class WithdrawalController extends Controller
         }
 
         DB::transaction(function () use ($withdrawal, $request) {
-            // If still pending, deduct balance first
+            // If still pending (direct complete without approve), update total_withdrawn
             if ($withdrawal->status === 'pending') {
                 $user = $withdrawal->user;
-                $user->earning_balance -= $withdrawal->amount;
+                // Balance already deducted when user requested withdrawal
                 $user->total_withdrawn += $withdrawal->amount;
                 $user->save();
             }
@@ -301,7 +301,7 @@ class WithdrawalController extends Controller
     private function formatWithdrawalDetails(Withdrawal $w): array
     {
         $data = $this->formatWithdrawal($w);
-        
+
         $data['bank_details'] = [
             'account_name' => $w->bank_details['account_name'] ?? null,
             'account_number' => $w->bank_details['account_number'] ?? null,

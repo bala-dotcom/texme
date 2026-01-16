@@ -158,10 +158,15 @@ class WalletController extends Controller
             'status' => 'pending',
         ]);
 
+        // Deduct balance from user's account
+        $user->earning_balance -= $amount;
+        $user->save();
+
         return response()->json([
             'success' => true,
             'message' => 'Withdrawal request submitted. Processing time: 2-3 business days.',
             'withdrawal_id' => $withdrawal->id,
+            'new_balance' => $user->earning_balance,
         ]);
     }
 

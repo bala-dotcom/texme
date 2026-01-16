@@ -61,58 +61,73 @@ class AuthController extends Controller
     public function verifyOtp(Request $request): JsonResponse
     {
         $request->validate([
-            'phone' => 'required|string|regex:/^[6-9]\d{9}$/',
-            'otp' => 'required|string|size:6',
+            'phone' => 'nullable|string',
+            'otp' => 'nullable|string',
+            'access_token' => 'nullable|string',
         ]);
 
         $phone = $request->phone;
         $otp = $request->otp;
+        $accessToken = $request->access_token;
 
-        // Find OTP record
-        $otpRecord = OtpVerification::where('phone', $phone)
-            ->where('is_verified', false)
-            ->latest()
-            ->first();
+        // 1. Verify OTP
+        if ($accessToken) {
+            // MSG91 Widget flow
+            $verifiedPhone = $this->otpService->verifyMsg91Token($accessToken);
 
-        if (!$otpRecord) {
-            return response()->json([
-                'success' => false,
-                'message' => 'OTP not found. Please request a new one.',
-            ], 400);
-        }
-
-        // Verify OTP - Allow test OTP "011011" in development
-        $isTestOtp = $otp === '011011' && config('app.env') !== 'production';
-
-        if (!$isTestOtp && !$otpRecord->verify($otp)) {
-            if ($otpRecord->isExpired()) {
+            if (!$verifiedPhone) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'OTP has expired. Please request a new one.',
+                    'message' => 'OTP verification failed with MSG91.',
                 ], 400);
             }
 
-            if ($otpRecord->hasTooManyAttempts()) {
+            // Normalize phone number (MSG91 returns with country code 91...)
+            if (str_starts_with($verifiedPhone, '91') && strlen($verifiedPhone) === 12) {
+                $phone = substr($verifiedPhone, 2);
+            } else {
+                $phone = $verifiedPhone;
+            }
+        } else {
+            // Legacy flow (for testing/development)
+            if (!$phone || !$otp) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Too many attempts. Please request a new OTP.',
+                    'message' => 'Phone and OTP are required.',
                 ], 400);
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid OTP. Please try again.',
-                'attempts_remaining' => 5 - $otpRecord->attempts,
-            ], 400);
+            // Find OTP record
+            $otpRecord = OtpVerification::where('phone', $phone)
+                ->where('is_verified', false)
+                ->latest()
+                ->first();
+
+            // Verify OTP - Allow test OTP "011011" in development
+            $isTestOtp = $otp === '011011' && config('app.env') !== 'production';
+
+            if (!$isTestOtp) {
+                // Try local verification first
+                $verifiedLocally = $otpRecord && $otpRecord->verify($otp);
+
+                if (!$verifiedLocally) {
+                    // Fallback to OTP provider's own verification (for MSG91 Widget flow)
+                    $verifiedByProvider = $this->otpService->verify($phone, $otp);
+
+                    if (!$verifiedByProvider) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Invalid OTP. Please try again.',
+                        ], 400);
+                    }
+                }
+            } else if ($otpRecord) {
+                $otpRecord->is_verified = true;
+                $otpRecord->save();
+            }
         }
 
-        // Mark as verified if test OTP was used
-        if ($isTestOtp) {
-            $otpRecord->is_verified = true;
-            $otpRecord->save();
-        }
-
-        // Check if user exists
+        // 2. Login or prepare Register response
         $user = User::where('phone', $phone)->first();
 
         if ($user) {
@@ -173,6 +188,7 @@ class AuthController extends Controller
             'age' => 'nullable|integer|min:18|max:100',
             'bio' => 'nullable|string|max:500',
             'avatar' => 'nullable|string|max:255', // Avatar URL or path
+            'voice_verification' => 'nullable|file|mimes:mp3,wav,aac,m4a,flac,ogg,mpga,3gp,m4r|max:10240', // 10MB max
         ]);
 
         // Decrypt and validate registration token
@@ -209,7 +225,7 @@ class AuthController extends Controller
         $name = $request->name ?? 'User_' . rand(1000, 9999);
 
         // Create user
-        $user = User::create([
+        $userData = [
             'phone' => $phone,
             'user_type' => $request->user_type,
             'name' => $name,
@@ -221,7 +237,15 @@ class AuthController extends Controller
             'account_status' => $request->user_type === 'female' ? 'pending' : 'active', // Females need admin approval
             'is_verified' => $request->user_type === 'male', // Males auto-verified
             'last_seen' => now(),
-        ]);
+            'voice_status' => $request->user_type === 'female' ? 'pending' : 'none',
+        ];
+
+        if ($request->hasFile('voice_verification')) {
+            $voicePath = $request->file('voice_verification')->store('voice_verifications', 'public');
+            $userData['voice_verification_path'] = $voicePath;
+        }
+
+        $user = User::create($userData);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -358,12 +382,14 @@ class AuthController extends Controller
             'name' => $user->name,
             'age' => $user->age,
             'bio' => $user->bio,
-            'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
+            'avatar' => $user->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : asset('storage/' . $user->avatar)) : null,
             'location' => $user->location,
             'status' => $user->status,
             'account_status' => $user->account_status,
             'is_verified' => $user->is_verified,
             'is_in_chat' => $user->isInChat(),
+            'voice_status' => $user->voice_status,
+            'voice_verification_url' => $user->voice_verification_path ? asset('storage/' . $user->voice_verification_path) : null,
         ];
 
         if ($user->isMale()) {

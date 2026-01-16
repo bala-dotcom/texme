@@ -60,11 +60,12 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse> verifyOtp(String phone, String otp) async {
+  Future<ApiResponse> verifyOtp({String? phone, String? otp, String? accessToken}) async {
     try {
       final response = await _dio.post(ApiConfig.verifyOtp, data: {
-        'phone': phone,
-        'otp': otp,
+        if (phone != null) 'phone': phone,
+        if (otp != null) 'otp': otp,
+        if (accessToken != null) 'access_token': accessToken,
       });
       return ApiResponse.success(response.data);
     } catch (e) {
@@ -80,25 +81,47 @@ class ApiService {
     String? bio,
     File? avatar,
     String? avatarUrl,
+    File? voiceVerification,
   }) async {
     try {
       print('DEBUG: Starting registration for $userType');
       print('DEBUG: Token length: ${registrationToken.length}');
       
-      // Use JSON with avatar URL
-      Map<String, dynamic> data = {
-        'registration_token': registrationToken,
-        'user_type': userType,
-        if (name != null) 'name': name,
-        if (age != null) 'age': age,
-        if (bio != null) 'bio': bio,
-        if (avatarUrl != null) 'avatar': avatarUrl,
-      };
+      // Use FormData when we have file uploads (voice verification)
+      if (voiceVerification != null) {
+        FormData formData = FormData.fromMap({
+          'registration_token': registrationToken,
+          'user_type': userType,
+          if (name != null) 'name': name,
+          if (age != null) 'age': age,
+          if (bio != null) 'bio': bio,
+          if (avatarUrl != null) 'avatar': avatarUrl,
+          'voice_verification': await MultipartFile.fromFile(
+            voiceVerification.path,
+            filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+          ),
+        });
 
-      print('DEBUG: Sending registration request with data: $data');
-      final response = await _dio.post(ApiConfig.register, data: data);
-      print('DEBUG: Registration response: ${response.data}');
-      return ApiResponse.success(response.data);
+        print('DEBUG: Sending registration with voice file');
+        final response = await _dio.post(ApiConfig.register, data: formData);
+        print('DEBUG: Registration response: ${response.data}');
+        return ApiResponse.success(response.data);
+      } else {
+        // Use JSON with avatar URL (no file uploads)
+        Map<String, dynamic> data = {
+          'registration_token': registrationToken,
+          'user_type': userType,
+          if (name != null) 'name': name,
+          if (age != null) 'age': age,
+          if (bio != null) 'bio': bio,
+          if (avatarUrl != null) 'avatar': avatarUrl,
+        };
+
+        print('DEBUG: Sending registration request with data: $data');
+        final response = await _dio.post(ApiConfig.register, data: data);
+        print('DEBUG: Registration response: ${response.data}');
+        return ApiResponse.success(response.data);
+      }
     } catch (e) {
       print('DEBUG: Registration error: $e');
       return _handleError(e);
@@ -453,6 +476,18 @@ class ApiService {
       final response = await _dio.post(ApiConfig.coinPurchase, data: {
         'coins': coins,
         'amount': amount,
+      });
+      return ApiResponse.success(response.data);
+    } catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  /// Test mode: Add coins directly without payment (for testing/demo)
+  Future<ApiResponse> testAddCoins(int coins) async {
+    try {
+      final response = await _dio.post('/coins/test-add', data: {
+        'coins': coins,
       });
       return ApiResponse.success(response.data);
     } catch (e) {

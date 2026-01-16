@@ -47,6 +47,8 @@ return [
         'api_key' => env('OTP_API_KEY'),
         'sender_id' => env('OTP_SENDER_ID', 'TEXME'),
         'msg91_template_id' => env('MSG91_TEMPLATE_ID'),
+        'msg91_widget_id' => env('MSG91_WIDGET_ID', '366168747878333233323639'),
+        'msg91_token_auth' => env('MSG91_TOKEN_AUTH'),
         'twilio_sid' => env('TWILIO_SID'),
         'twilio_token' => env('TWILIO_TOKEN'),
         'twilio_from' => env('TWILIO_FROM'),

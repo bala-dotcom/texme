@@ -368,6 +368,119 @@ class UserManagementController extends Controller
         ]);
     }
 
+    /**
+     * Get voice verifications list by status
+     */
+    public function voiceVerifications(Request $request): JsonResponse
+    {
+        $status = $request->get('status', 'pending');
+
+        $query = User::where('user_type', 'female')
+            ->whereNotNull('voice_verification_path');
+
+        if ($status !== 'all') {
+            $query->where('voice_status', $status);
+        }
+
+        $users = $query->orderBy('created_at', 'desc')
+            ->paginate($request->get('per_page', 20));
+
+        return response()->json([
+            'success' => true,
+            'data' => $users->map(fn($u) => $this->formatVoiceUser($u)),
+            'pagination' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'total' => $users->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Verify a voice sample
+     */
+    public function verifyVoice(Request $request, int $id): JsonResponse
+    {
+        $user = User::where('id', $id)
+            ->where('user_type', 'female')
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $user->voice_status = 'verified';
+        $user->save();
+
+        // Log action
+        AdminLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'voice_verification_approved',
+            'description' => "Verified voice for user #{$id}",
+            'target_type' => 'user',
+            'target_id' => $id,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Voice verified successfully',
+        ]);
+    }
+
+    /**
+     * Reject a voice sample
+     */
+    public function rejectVoice(Request $request, int $id): JsonResponse
+    {
+        $user = User::where('id', $id)
+            ->where('user_type', 'female')
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $user->voice_status = 'rejected';
+        $user->save();
+
+        // Log action
+        AdminLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'voice_verification_rejected',
+            'description' => "Rejected voice for user #{$id}: " . ($request->reason ?? 'No reason provided'),
+            'target_type' => 'user',
+            'target_id' => $id,
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Voice rejected',
+        ]);
+    }
+
+    private function formatVoiceUser(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'phone' => $user->phone,
+            'avatar' => $user->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : asset('storage/' . $user->avatar)) : null,
+            'voice_status' => $user->voice_status,
+            'voice_verification_url' => $user->voice_verification_path ? asset('storage/' . $user->voice_verification_path) : null,
+            'created_at' => $user->created_at,
+        ];
+    }
+
     // ========== HELPER METHODS ==========
 
     private function formatUser(User $user): array
@@ -377,7 +490,7 @@ class UserManagementController extends Controller
             'name' => $user->name,
             'phone' => $user->phone,
             'user_type' => $user->user_type,
-            'avatar' => $user->avatar ? asset('storage/' . $user->avatar) : null,
+            'avatar' => $user->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : asset('storage/' . $user->avatar)) : null,
             'status' => $user->status,
             'account_status' => $user->account_status,
             'is_verified' => $user->is_verified,

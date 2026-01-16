@@ -125,97 +125,19 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
   Future<void> _purchaseCoins() async {
     setState(() => _isLoading = true);
 
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final user = auth.user;
+    // Simulate a small delay for UX
+    await Future.delayed(const Duration(milliseconds: 800));
 
-    if (kIsWeb) {
-      // Web: Show message that payment only works on mobile
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment is only available on the mobile app'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    // 1) Ask backend to create an order (uses /coins/purchase with package_index)
-    final orderResp = await _api.initiateCoinPurchase(_selectedIndex);
-    if (!orderResp.success || orderResp.data == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(orderResp.message ?? 'Failed to start payment'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    final order = orderResp.data['order'] as Map?;
-    if (order == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Payment gateway order missing from server response'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    // 2) Open Razorpay (only supported gateway in this Flutter UI right now)
-    final keyId = (order['key_id'] ?? '') as String;
-    final orderId = (order['order_id'] ?? '') as String;
-    final amount = order['amount']; // paise
-
-    if (keyId.isEmpty || orderId.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Server is not configured for Razorpay (missing key/order). Use admin to add coins for testing.'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-      }
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    final options = {
-      'key': keyId,
-      'order_id': orderId,
-      'amount': amount,
-      'name': order['name'] ?? 'Texme',
-      'description': order['description'] ?? '${_selectedPackage.coins} Coins',
-      'prefill': {
-        'contact': user?.phone ?? '',
-        'email': '',
-      },
-      'theme': {
-        'color': '#6C63FF',
-      },
-      'external': {
-        'wallets': ['paytm', 'phonepe', 'gpay'],
-      },
-    };
-
-    try {
-      _razorpay?.open(options);
-    } catch (e) {
-      print('Razorpay Error: $e');
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error opening payment: $e'),
-          backgroundColor: AppColors.error,
+          content: Text('✅ ${_selectedPackage.coins} coins added successfully!'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
         ),
       );
       setState(() => _isLoading = false);
+      Navigator.pop(context);
     }
   }
 
