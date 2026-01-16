@@ -413,6 +413,8 @@ class UserManagementController extends Controller
         }
 
         $user->voice_status = 'verified';
+        $user->account_status = 'active'; // Auto-approve female user
+        $user->is_verified = true;
         $user->save();
 
         // Log action

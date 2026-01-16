@@ -536,7 +536,7 @@ class ChatController extends Controller
         }
 
         $chats = $query->orderBy('ended_at', 'desc')
-            ->with(['maleUser:id,name', 'femaleUser:id,name,avatar'])
+            ->with(['maleUser', 'femaleUser'])
             ->paginate(20);
 
         return response()->json([
@@ -633,9 +633,9 @@ class ChatController extends Controller
             ->where('status', 'pending')
             ->where('created_at', '<', now()->subSeconds(120))
             ->update([
-                'status' => 'ended',
-                'ended_at' => now(),
-            ]);
+                    'status' => 'ended',
+                    'ended_at' => now(),
+                ]);
 
         // Only return pending requests from the last 120 seconds
         $pendingChats = Chat::where('female_user_id', $user->id)
@@ -728,6 +728,8 @@ class ChatController extends Controller
             'partner_id' => $partner->id,
             'partner_name' => $partner->name,
             'partner_avatar' => $partner->avatar ? asset('storage/' . $partner->avatar) : null,
+            'partner_status' => $partner->status,
+            'is_online' => ($partner->status === 'online' || $partner->status === 'busy'),
             'total_minutes' => $chat->total_minutes,
             'coins_spent' => $chat->coins_spent,
             'female_earnings' => $chat->female_earnings,

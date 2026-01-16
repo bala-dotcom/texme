@@ -188,7 +188,7 @@ class AuthController extends Controller
             'age' => 'nullable|integer|min:18|max:100',
             'bio' => 'nullable|string|max:500',
             'avatar' => 'nullable|string|max:255', // Avatar URL or path
-            'voice_verification' => 'nullable|file|mimes:mp3,wav,aac,m4a,flac,ogg,mpga,3gp,m4r|max:10240', // 10MB max
+            'voice_verification' => 'nullable|file|max:10240', // 10MB max, any audio format
         ]);
 
         // Decrypt and validate registration token

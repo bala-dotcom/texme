@@ -27,6 +27,7 @@ class UserController extends Controller
 
         $females = User::where('user_type', 'female')
             ->where('account_status', 'active')
+            ->where('status', '!=', 'offline')
             ->where('id', '!=', $user->id)
             ->orderByRaw("CASE WHEN status = 'online' THEN 0 ELSE 1 END")
             ->orderBy('last_seen', 'desc')
