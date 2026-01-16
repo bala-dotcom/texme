@@ -35,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // If female and not verified, go to pending
-    if (auth.user?.isFemale == true && auth.user?.voiceStatus != 'verified') {
+    if (auth.user?.isFemale == true && auth.user?.voiceStatus == 'pending') {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),

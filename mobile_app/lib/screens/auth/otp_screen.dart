@@ -76,7 +76,7 @@ class _OtpScreenState extends State<OtpScreen> {
       } else {
         // Existing user
         final user = authProvider.user;
-        if (user?.isFemale == true && user?.voiceStatus != 'verified') {
+        if (user?.isFemale == true && user?.voiceStatus == 'pending') {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),

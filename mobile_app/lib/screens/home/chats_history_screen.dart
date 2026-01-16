@@ -18,6 +18,7 @@ class ChatHistory {
   final int coinsSpent;
   final double femaleEarnings;
   final String status;
+  final bool isOnline;
 
   ChatHistory({
     required this.chatId,
@@ -29,6 +30,7 @@ class ChatHistory {
     required this.coinsSpent,
     required this.femaleEarnings,
     required this.status,
+    this.isOnline = false,
   });
 
   factory ChatHistory.fromJson(Map<String, dynamic> json) {
@@ -54,6 +56,7 @@ class ChatHistory {
       coinsSpent: json['coins_spent'] ?? 0,
       femaleEarnings: earnings,
       status: json['status'] ?? 'ended',
+      isOnline: json['is_online'] ?? false,
     );
   }
 }
@@ -224,6 +227,7 @@ class _ChatsHistoryScreenState extends State<ChatsHistoryScreen> {
               // Show chat details or allow reconnect
               _showChatDetails(chat);
             },
+            onStartChat: isMale ? () => _startChatWithPartner(chat) : null,
           );
         },
       ),
@@ -352,12 +356,14 @@ class _ChatHistoryCard extends StatelessWidget {
   final bool isMale;
   final String timeAgo;
   final VoidCallback onTap;
+  final VoidCallback? onStartChat;
 
   const _ChatHistoryCard({
     required this.chat,
     required this.isMale,
     required this.timeAgo,
     required this.onTap,
+    this.onStartChat,
   });
 
   @override
@@ -376,22 +382,40 @@ class _ChatHistoryCard extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              // Avatar
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.primary.withOpacity(0.1),
-                backgroundImage: chat.partnerAvatar != null
-                    ? NetworkImage(chat.partnerAvatar!)
-                    : null,
-                child: chat.partnerAvatar == null
-                    ? Text(
-                        chat.partnerName[0].toUpperCase(),
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
+              // Avatar with online indicator
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppColors.primary.withOpacity(0.1),
+                    backgroundImage: chat.partnerAvatar != null
+                        ? NetworkImage(chat.partnerAvatar!)
+                        : null,
+                    child: chat.partnerAvatar == null
+                        ? Text(
+                            chat.partnerName[0].toUpperCase(),
+                            style: AppTextStyles.bodyLarge.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  // Online indicator dot
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: chat.isOnline ? AppColors.success : Colors.grey,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: AppSpacing.md),
               
@@ -421,61 +445,86 @@ class _ChatHistoryCard extends StatelessWidget {
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Icon(
-                          isMale ? Icons.monetization_on_outlined : Icons.account_balance_wallet_outlined,
-                          size: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          isMale 
-                              ? '${chat.coinsSpent} coins'
-                              : '₹${chat.femaleEarnings.toStringAsFixed(0)}',
-                          style: AppTextStyles.bodySmall.copyWith(
+                        // Only show earnings for female users
+                        if (!isMale) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 14,
                             color: AppColors.textSecondary,
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '₹${chat.femaleEarnings.toStringAsFixed(0)}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
                 ),
               ),
               
-              // Time
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    timeAgo,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textLight,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
+              // Start Chat button for males (centered vertically)
+              if (isMale && onStartChat != null)
+                GestureDetector(
+                  onTap: chat.isOnline ? onStartChat : null,
+                  child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
+                      horizontal: 16,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: chat.status == 'active' 
-                          ? AppColors.success.withOpacity(0.1)
-                          : AppColors.textLight.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: chat.isOnline ? AppColors.primary : Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      chat.status == 'active' ? 'Active' : 'Ended',
-                      style: AppTextStyles.caption.copyWith(
-                        color: chat.status == 'active' 
-                            ? AppColors.success
-                            : AppColors.textSecondary,
-                        fontSize: 10,
+                      'Start Chat',
+                      style: TextStyle(
+                        color: chat.isOnline ? Colors.white : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                ],
-              ),
+                )
+              // Time and status for females
+              else if (!isMale)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      timeAgo,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: chat.status == 'active' 
+                            ? AppColors.success.withOpacity(0.1)
+                            : AppColors.textLight.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        chat.status == 'active' ? 'Active' : 'Ended',
+                        style: AppTextStyles.caption.copyWith(
+                          color: chat.status == 'active' 
+                              ? AppColors.success
+                              : AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

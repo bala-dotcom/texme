@@ -136,7 +136,7 @@ class _SplashScreenState extends State<SplashScreen> {
     // Navigate based on auth state
     if (authProvider.isLoggedIn) {
       final user = authProvider.user;
-      if (user?.isFemale == true && user?.voiceStatus != 'verified') {
+      if (user?.isFemale == true && user?.voiceStatus == 'pending') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),

@@ -71,7 +71,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       );
     } else {
       final user = authProvider.user;
-      if (user?.isFemale == true && user?.voiceStatus != 'verified') {
+      if (user?.isFemale == true && user?.voiceStatus == 'pending') {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const PendingVerificationScreen()),

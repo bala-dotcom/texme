@@ -96,7 +96,7 @@ class _VoiceVerificationScreenState extends State<VoiceVerificationScreen> {
     }
 
     try {
-      final directory = await getTemporaryDirectory();
+      final directory = await getApplicationDocumentsDirectory();
       final path = '${directory.path}/voice_verification_${DateTime.now().millisecondsSinceEpoch}.m4a';
       
       await _recorder.start(

@@ -4,7 +4,6 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
-import PendingFemales from './pages/PendingFemales';
 import VoiceVerifications from './pages/VoiceVerifications';
 import Withdrawals from './pages/Withdrawals';
 import Reports from './pages/Reports';
@@ -76,14 +75,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Users />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/pending-females"
-        element={
-          <ProtectedRoute>
-            <PendingFemales />
           </ProtectedRoute>
         }
       />

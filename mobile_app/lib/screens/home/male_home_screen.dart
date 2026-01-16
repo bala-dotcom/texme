@@ -339,22 +339,6 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
                           return _UserImageCard(
                             user: female,
                             onTap: () => _connectToUser(female),
-                            onFavorite: () {
-                              setState(() {
-                                female.isLiked = !female.isLiked;
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    female.isLiked 
-                                      ? 'Added ${female.name} to favorites'
-                                      : 'Removed ${female.name} from favorites'
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                  backgroundColor: female.isLiked ? AppColors.success : AppColors.textSecondary,
-                                ),
-                              );
-                            },
                           );
                         },
                       ),
@@ -533,12 +517,10 @@ class _UserPreviewSheet extends StatelessWidget {
 class _UserImageCard extends StatelessWidget {
   final FemaleUser user;
   final VoidCallback onTap;
-  final VoidCallback onFavorite;
 
   const _UserImageCard({
     required this.user,
     required this.onTap,
-    required this.onFavorite,
   });
 
   @override
@@ -590,35 +572,13 @@ class _UserImageCard extends StatelessWidget {
               // Online Indicator
               if (user.isAvailable)
                 Positioned(
-                  top: 12,
-                  left: 12,
+                  top: 8,
+                  left: 8,
                   child: Container(
-                    width: 12,
-                    height: 12,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.success.withOpacity(0.5),
-                          blurRadius: 6,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-              Positioned(
-                top: 8,
-                right: 8,
-                child: GestureDetector(
-                  onTap: onFavorite,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.1),
@@ -627,14 +587,16 @@ class _UserImageCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: Icon(
-                      user.isLiked ? Icons.favorite : Icons.favorite_border,
-                      color: user.isLiked ? Colors.red : AppColors.primary,
-                      size: 20,
+                    child: Text(
+                      'Online',
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
               // User Info at Bottom
               Positioned(

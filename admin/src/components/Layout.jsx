@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import {
     LayoutDashboard,
     Users,
-    UserCheck,
     Wallet,
     Flag,
     CreditCard,
@@ -20,7 +19,6 @@ import {
 const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Users', href: '/users', icon: Users },
-    { name: 'Pending Approval', href: '/pending-females', icon: UserCheck },
     { name: 'Voice Verifications', href: '/voice-verifications', icon: Mic },
     { name: 'Withdrawals', href: '/withdrawals', icon: Wallet },
     { name: 'Reports', href: '/reports', icon: Flag },
