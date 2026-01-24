@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.texme.app">
     <!-- Network permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -62,6 +63,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+            
+        <!-- Truecaller SDK Client ID -->
+        <meta-data 
+            android:name="com.truecaller.android.sdk.ClientId" 
+            android:value="-hbqoedauhenyisbavsp0acldr8tq2ilqk6br9dc7wy"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -73,5 +79,7 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Truecaller app detection -->
+        <package android:name="com.truecaller"/>
     </queries>
 </manifest>

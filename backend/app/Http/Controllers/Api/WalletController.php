@@ -43,7 +43,7 @@ class WalletController extends Controller
     }
 
     /**
-     * Get earning history
+     * Get withdrawal history (for wallet page - only withdrawals)
      */
     public function history(Request $request): JsonResponse
     {
@@ -56,10 +56,10 @@ class WalletController extends Controller
             ], 403);
         }
 
+        // Only show withdrawal transactions on wallet page
         $transactions = Transaction::where('user_id', $user->id)
-            ->whereIn('type', ['earning', 'withdrawal'])
+            ->where('type', 'withdrawal')
             ->orderBy('created_at', 'desc')
-            ->with('chat:id,total_minutes')
             ->paginate(20);
 
         return response()->json([
@@ -68,10 +68,68 @@ class WalletController extends Controller
                 'id' => $t->id,
                 'type' => $t->type,
                 'amount' => $t->amount,
-                'chat_minutes' => $t->chat?->total_minutes,
                 'status' => $t->status,
+                'description' => 'Withdrawal',
                 'created_at' => $t->created_at,
             ]),
+            'pagination' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'total' => $transactions->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get all transaction history (earnings + withdrawals)
+     */
+    public function earningHistory(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->isFemale()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This feature is for female users only',
+            ], 403);
+        }
+
+        // Show all transactions (earnings + withdrawals)
+        $transactions = Transaction::where('user_id', $user->id)
+            ->whereIn('type', ['earning', 'withdrawal'])
+            ->orderBy('created_at', 'desc')
+            ->with('chat:id,total_minutes')
+            ->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'transactions' => $transactions->map(function ($t) {
+                // Get partner name for earnings
+                $partnerName = null;
+                $description = '';
+
+                if ($t->type === 'earning') {
+                    $partnerUserId = $t->metadata['partner_user_id'] ?? null;
+                    if ($partnerUserId) {
+                        $partner = User::find($partnerUserId);
+                        $partnerName = $partner ? $partner->name : null;
+                    }
+                    $description = $partnerName ? "Chat with $partnerName" : 'Chat earning';
+                } else if ($t->type === 'withdrawal') {
+                    $description = 'Withdrawal';
+                }
+
+                return [
+                    'id' => $t->id,
+                    'type' => $t->type,
+                    'amount' => $t->amount,
+                    'chat_minutes' => $t->chat?->total_minutes,
+                    'status' => $t->status,
+                    'description' => $description,
+                    'partner_name' => $partnerName,
+                    'created_at' => $t->created_at,
+                ];
+            }),
             'pagination' => [
                 'current_page' => $transactions->currentPage(),
                 'last_page' => $transactions->lastPage(),

@@ -121,6 +121,7 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -136,18 +137,19 @@ class _OtpScreenState extends State<OtpScreen> {
       body: SafeArea(
         child: Consumer<AuthProvider>(
           builder: (context, auth, child) {
-            final maskedPhone = auth.phone != null
-                ? '+91 ${auth.phone!.substring(0, 2)}XXXXXX${auth.phone!.substring(8)}'
+            final displayPhone = auth.phone != null
+                ? '+91 ${auth.phone}'
                 : '';
 
             return LoadingOverlay(
               isLoading: auth.isLoading,
               child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
 
                     // Icon
                     Container(
@@ -181,7 +183,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      maskedPhone,
+                      displayPhone,
                       style: AppTextStyles.bodyLarge.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -201,15 +203,17 @@ class _OtpScreenState extends State<OtpScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         fieldHeight: 56,
                         fieldWidth: 48,
-                        activeFillColor: AppColors.backgroundSecondary,
-                        inactiveFillColor: AppColors.backgroundSecondary,
-                        selectedFillColor: AppColors.backgroundSecondary,
+                        activeFillColor: Colors.white,
+                        inactiveFillColor: Colors.white,
+                        selectedFillColor: Colors.white,
                         activeColor: AppColors.primary,
                         inactiveColor: AppColors.border,
                         selectedColor: AppColors.primary,
+                        errorBorderColor: AppColors.error,
                       ),
                       animationDuration: const Duration(milliseconds: 200),
                       enableActiveFill: true,
+                      boxShadows: const [],
                       onCompleted: (value) {
                         setState(() => _isComplete = true);
                         _verifyOtp();

@@ -578,13 +578,11 @@ class _FemaleHomeScreenState extends State<FemaleHomeScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  image: const DecorationImage(
+                    image: AssetImage('assets/icons/app_icon.png'),
+                    fit: BoxFit.cover,
+                  ),
                   borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.chat_bubble_rounded,
-                  color: Colors.white,
-                  size: 24,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -595,7 +593,10 @@ class _FemaleHomeScreenState extends State<FemaleHomeScreen> {
 
               // Wallet Balance
               GestureDetector(
-                onTap: () => setState(() => _currentIndex = 2),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WalletScreen()),
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.md,

@@ -94,6 +94,9 @@ class _ChatsHistoryScreenState extends State<ChatsHistoryScreen> {
     if (response.success && response.data != null && response.data['chats'] != null) {
       final List chats = response.data['chats'];
       debugPrint('🔍 Found ${chats.length} chats');
+      for (var chat in chats) {
+        debugPrint('🔍 Chat ${chat['partner_name']}: is_online=${chat['is_online']}, partner_status=${chat['partner_status']}');
+      }
       setState(() {
         _chats = chats.map((c) => ChatHistory.fromJson(c)).toList();
       });
@@ -252,9 +255,7 @@ class _ChatsHistoryScreenState extends State<ChatsHistoryScreen> {
             CircleAvatar(
               radius: 40,
               backgroundColor: AppColors.primary.withOpacity(0.1),
-              backgroundImage: chat.partnerAvatar != null
-                  ? NetworkImage(chat.partnerAvatar!)
-                  : null,
+              backgroundImage: AuthProvider.getAvatarImage(chat.partnerAvatar),
               child: chat.partnerAvatar == null
                   ? Text(
                       chat.partnerName[0].toUpperCase(),
@@ -388,9 +389,7 @@ class _ChatHistoryCard extends StatelessWidget {
                   CircleAvatar(
                     radius: 28,
                     backgroundColor: AppColors.primary.withOpacity(0.1),
-                    backgroundImage: chat.partnerAvatar != null
-                        ? NetworkImage(chat.partnerAvatar!)
-                        : null,
+                    backgroundImage: AuthProvider.getAvatarImage(chat.partnerAvatar),
                     child: chat.partnerAvatar == null
                         ? Text(
                             chat.partnerName[0].toUpperCase(),

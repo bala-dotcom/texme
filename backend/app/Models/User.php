@@ -46,6 +46,7 @@ class User extends Authenticatable
         'active_chat_id',
         'voice_status',
         'voice_verification_path',
+        'languages',
     ];
 
     /**
@@ -77,6 +78,7 @@ class User extends Authenticatable
             'total_earned' => 'decimal:2',
             'total_withdrawn' => 'decimal:2',
             'rate_per_minute' => 'decimal:2',
+            'languages' => 'array',
         ];
     }
 
@@ -192,19 +194,11 @@ class User extends Authenticatable
     public function getPotentialEarningsAttribute(): float
     {
         if ($this->isMale()) {
-            $setting = Setting::where('key', 'female_earning_ratio')->first();
-            $ratio = $setting ? (float) $setting->value : 0.36;
-
-            // Calculate how many minutes of chat possible
-            $coinsPerMin = Setting::where('key', 'coins_per_minute')->first();
-            $coinsPerMinute = $coinsPerMin ? (int) $coinsPerMin->value : 10;
+            $earningPerMin = Setting::getFemaleEarningPerMinute();
+            $coinsPerMinute = Setting::getCoinsPerMinute();
 
             $possibleMinutes = floor($this->coin_balance / $coinsPerMinute);
-
-            // Calculate earning (coin_value * ratio)
-            // Assuming 40 coins = ₹25, so 1 coin = ₹0.625
-            $coinValue = 0.625;
-            return round($this->coin_balance * $coinValue * $ratio, 2);
+            return round($possibleMinutes * $earningPerMin, 2);
         }
         return 0;
     }

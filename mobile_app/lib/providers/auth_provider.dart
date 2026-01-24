@@ -8,6 +8,16 @@ import '../config/api_config.dart';
 
 /// Authentication Provider
 class AuthProvider extends ChangeNotifier {
+  static ImageProvider getAvatarImage(String? avatarUrl) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return const AssetImage('assets/images/logo.png');
+    }
+    if (avatarUrl.startsWith('assets/')) {
+      return AssetImage(avatarUrl);
+    }
+    return NetworkImage(avatarUrl);
+  }
+
   final ApiService _api = ApiService.instance;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -131,6 +141,52 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Verify with Truecaller authorization code
+  Future<bool> verifyWithTruecaller({
+    required String authorizationCode,
+    required String codeVerifier,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      debugPrint('🔐 Verifying with Truecaller - authCode: $authorizationCode');
+      
+      final response = await _api.verifyWithTruecaller(
+        authorizationCode: authorizationCode,
+        codeVerifier: codeVerifier,
+      );
+
+      if (response.success) {
+        final data = response.data;
+        _isNewUser = data['is_new_user'] ?? false;
+        _phone = data['phone'];
+
+        if (_isNewUser) {
+          // Need to register
+          _registrationToken = data['registration_token'];
+          _setLoading(false);
+          return true;
+        } else {
+          // Existing user - logged in
+          await _handleLogin(data);
+          _setLoading(false);
+          return true;
+        }
+      } else {
+        _setError(response.message ?? 'Truecaller verification failed');
+        _setLoading(false);
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Truecaller verify error: $e');
+      _setError('Truecaller verification failed');
+      _setLoading(false);
+      return false;
+    }
+  }
+
+
   /// Register new user
   Future<bool> register({
     required String userType,
@@ -140,6 +196,7 @@ class AuthProvider extends ChangeNotifier {
     File? avatar,
     String? avatarUrl,
     File? voiceVerification,
+    List<String>? languages,
   }) async {
     if (_registrationToken == null) {
       _setError('Registration token expired');
@@ -158,6 +215,7 @@ class AuthProvider extends ChangeNotifier {
       avatar: avatar,
       avatarUrl: avatarUrl,
       voiceVerification: voiceVerification,
+      languages: languages,
     );
 
     if (response.success) {

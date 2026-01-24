@@ -75,9 +75,9 @@ class ChatController extends Controller
         ]);
 
         // Calculate potential earnings for female
-        $earningRatio = Setting::getFemaleEarningRatio();
-        $coinValue = 0.625;
-        $potentialEarning = round($user->coin_balance * $coinValue * $earningRatio, 2);
+        $earningPerMin = Setting::getFemaleEarningPerMinute();
+        $possibleMinutes = floor($user->coin_balance / $coinsPerMinute);
+        $potentialEarning = round($possibleMinutes * $earningPerMin, 2);
 
         // Send push notification to female if she has FCM token
         if ($female->fcm_token) {
@@ -441,8 +441,7 @@ class ChatController extends Controller
         }
 
         $coinsPerMinute = Setting::getCoinsPerMinute();
-        $earningRatio = Setting::getFemaleEarningRatio();
-        $coinValue = 0.625; // ₹25 = 40 coins, so 1 coin = ₹0.625
+        $earnings = Setting::getFemaleEarningPerMinute(); // Fixed earning per minute
 
         $male = $chat->maleUser;
 
@@ -460,8 +459,7 @@ class ChatController extends Controller
             ], 400);
         }
 
-        // Calculate earnings for this minute
-        $earnings = round($coinsPerMinute * $coinValue * $earningRatio, 2);
+        // earnings is already defined above as fixed per minute
 
         DB::transaction(function () use ($chat, $male, $coinsPerMinute, $earnings) {
             $female = $chat->femaleUser;
@@ -633,9 +631,9 @@ class ChatController extends Controller
             ->where('status', 'pending')
             ->where('created_at', '<', now()->subSeconds(120))
             ->update([
-                    'status' => 'ended',
-                    'ended_at' => now(),
-                ]);
+                'status' => 'ended',
+                'ended_at' => now(),
+            ]);
 
         // Only return pending requests from the last 120 seconds
         $pendingChats = Chat::where('female_user_id', $user->id)
@@ -645,13 +643,14 @@ class ChatController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $earningRatio = Setting::getFemaleEarningRatio();
-        $coinValue = 0.625;
+        $coinsPerMinute = Setting::getCoinsPerMinute();
+        $earningPerMin = Setting::getFemaleEarningPerMinute();
 
         return response()->json([
             'success' => true,
-            'requests' => $pendingChats->map(function ($chat) use ($earningRatio, $coinValue) {
-                $potentialEarning = round($chat->maleUser->coin_balance * $coinValue * $earningRatio, 2);
+            'requests' => $pendingChats->map(function ($chat) use ($earningPerMin, $coinsPerMinute) {
+                $possibleMinutes = floor($chat->maleUser->coin_balance / $coinsPerMinute);
+                $potentialEarning = round($possibleMinutes * $earningPerMin, 2);
                 return [
                     'chat_id' => $chat->id,
                     'male_id' => $chat->maleUser->id,

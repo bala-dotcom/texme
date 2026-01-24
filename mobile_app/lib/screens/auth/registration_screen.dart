@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/common/widgets.dart';
 import '../home/home_screen.dart';
 import 'voice_verification_screen.dart';
+import 'language_selection_screen.dart';
 
 /// Registration Screen - Simplified
 /// Male: No fields required (auto-generated name)
@@ -25,16 +26,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _bioController = TextEditingController();
 
-  // Predefined avatars for female users
+  // South Indian style avatars for female users
   final List<String> _avatarOptions = [
-    'https://api.dicebear.com/7.x/avataaars/png?seed=1',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=2',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=3',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=4',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=5',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=6',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=7',
-    'https://api.dicebear.com/7.x/avataaars/png?seed=8',
+    'assets/images/avatars/avatar_1.png',
+    'assets/images/avatars/avatar_2.png',
+    'assets/images/avatars/avatar_3.png',
+    'assets/images/avatars/avatar_4.png',
+    'assets/images/avatars/avatar_5.png',
+    'assets/images/avatars/avatar_6.png',
+    'assets/images/avatars/avatar_7.png',
+    'assets/images/avatars/avatar_8.png',
   ];
   
   int _selectedAvatarIndex = 0;
@@ -141,7 +142,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               child: CircleAvatar(
                                 radius: 35,
                                 backgroundColor: AppColors.backgroundSecondary,
-                                backgroundImage: NetworkImage(_avatarOptions[index]),
+                                backgroundImage: AssetImage(_avatarOptions[index]),
                               ),
                             ),
                           );
@@ -221,7 +222,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => VoiceVerificationScreen(
+                              builder: (_) => LanguageSelectionScreen(
                                 userType: widget.userType,
                                 bio: _bioController.text.trim(),
                                 avatarUrl: _avatarOptions[_selectedAvatarIndex],

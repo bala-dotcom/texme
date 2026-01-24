@@ -124,10 +124,10 @@ class OtpService
             $response = Http::withBasicAuth($sid, $token)
                 ->asForm()
                 ->post("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json", [
-                        'From' => $from,
-                        'To' => '+' . $phone,
-                        'Body' => $message,
-                    ]);
+                    'From' => $from,
+                    'To' => '+' . $phone,
+                    'Body' => $message,
+                ]);
 
             if ($response->successful()) {
                 return true;
@@ -155,7 +155,9 @@ class OtpService
             return $this->verifyMsg91Otp($phone, $otp);
         }
 
-        return true;
+        // For 2factor and other providers, return false to force local OTP verification
+        // (These providers don't have a verification API - OTP is stored locally)
+        return false;
     }
 
     /**

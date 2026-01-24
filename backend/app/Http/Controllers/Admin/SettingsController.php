@@ -104,10 +104,9 @@ class SettingsController extends Controller
     public function updateRates(Request $request): JsonResponse
     {
         $request->validate([
-            'coin_rate_per_minute' => 'nullable|integer|min:1',
+            'coins_per_minute' => 'nullable|integer|min:1',
             'female_earning_per_minute' => 'nullable|numeric|min:0',
-            'platform_commission_percent' => 'nullable|numeric|min:0|max:100',
-            'min_withdrawal_amount' => 'nullable|numeric|min:0',
+            'minimum_withdrawal' => 'nullable|numeric|min:0',
         ]);
 
         foreach ($request->all() as $key => $value) {

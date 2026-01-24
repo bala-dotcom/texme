@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/user.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import 'chat_screen.dart';
+import '../wallet/coin_purchase_screen.dart';
 
 /// Connecting Screen - Shown to male user while waiting for female to accept
 class ConnectingScreen extends StatefulWidget {
@@ -24,6 +27,8 @@ class _ConnectingScreenState extends State<ConnectingScreen>
   int? _chatId;
   bool _isConnecting = true;
   String _status = 'Connecting...';
+  int _dotCount = 0;
+  Timer? _dotTimer;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -32,6 +37,7 @@ class _ConnectingScreenState extends State<ConnectingScreen>
   void initState() {
     super.initState();
     _setupAnimation();
+    _startDotAnimation();
     _sendChatRequest();
   }
 
@@ -41,9 +47,19 @@ class _ConnectingScreenState extends State<ConnectingScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+  }
+
+  void _startDotAnimation() {
+    _dotTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted) {
+        setState(() {
+          _dotCount = (_dotCount + 1) % 4;
+        });
+      }
+    });
   }
 
   Future<void> _sendChatRequest() async {
@@ -87,6 +103,22 @@ class _ConnectingScreenState extends State<ConnectingScreen>
           }
           return;
         }
+      }
+      
+      if (message.contains('Not enough coins')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You have not enough coins'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const CoinPurchaseScreen()),
+          );
+        }
+        return;
       }
       
       setState(() {
@@ -164,8 +196,10 @@ class _ConnectingScreenState extends State<ConnectingScreen>
   void _stopTimers() {
     _pollTimer?.cancel();
     _timeoutTimer?.cancel();
+    _dotTimer?.cancel();
     _pollTimer = null;
     _timeoutTimer = null;
+    _dotTimer = null;
   }
 
   void _cancelRequest() async {
@@ -185,178 +219,212 @@ class _ConnectingScreenState extends State<ConnectingScreen>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF6366F1), // Indigo
-              Color(0xFF8B5CF6), // Purple
-            ],
+  Widget _buildAvatar(String? avatarUrl, String name, String label, bool isPulsing) {
+    return Column(
+      children: [
+        AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: isPulsing && _isConnecting ? _pulseAnimation.value : 1.0,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                    width: 3,
+                  ),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? avatarUrl.startsWith('assets/')
+                            ? Image.asset(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _buildPlaceholder(name),
+                              )
+                            : Image.network(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _buildPlaceholder(name),
+                              )
+                        : _buildPlaceholder(name),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6C5CE7),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Top bar with cancel
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: _cancelRequest,
-                    ),
-                  ],
-                ),
-              ),
+      ],
+    );
+  }
 
-              const Spacer(),
-
-              // User Avatar with pulse
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _isConnecting ? _pulseAnimation.value : 1.0,
-                    child: Container(
-                      width: 150,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.3),
-                            blurRadius: 30,
-                            spreadRadius: 5,
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: widget.user.avatar != null
-                            ? Image.network(
-                                widget.user.avatar!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(),
-                              )
-                            : _buildAvatarPlaceholder(),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: AppSpacing.xl),
-
-              // User Name
-              Text(
-                widget.user.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-
-              // Status
-              Text(
-                _status,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-
-              // Rate info
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '₹${widget.user.ratePerMinute.toStringAsFixed(0)}/min',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              const Spacer(),
-
-              // Loading indicator or status icon
-              if (_isConnecting)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 40),
-                  child: SizedBox(
-                    width: 50,
-                    height: 50,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 3,
-                    ),
-                  ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 40),
-                  child: Icon(
-                    _status.contains('declined') 
-                        ? Icons.close 
-                        : Icons.error_outline,
-                    color: Colors.white,
-                    size: 50,
-                  ),
-                ),
-
-              // Cancel Button
-              if (_isConnecting)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 50),
-                  child: TextButton(
-                    onPressed: _cancelRequest,
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+  Widget _buildPlaceholder(String name) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 40,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildAvatarPlaceholder() {
-    return Container(
-      color: Colors.white.withOpacity(0.3),
-      child: Center(
-        child: Text(
-          widget.user.name.isNotEmpty ? widget.user.name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 60,
-            fontWeight: FontWeight.bold,
-          ),
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final currentUser = auth.user;
+    final dots = '.' * (_dotCount + 1);
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        _cancelRequest();
+      },
+      child: Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 60),
+
+            // "Connecting" text with animated dots
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Connecting',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Animated dots
+                Row(
+                  children: List.generate(3, (index) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: index <= _dotCount 
+                            ? const Color(0xFF6C5CE7) 
+                            : Colors.grey.shade300,
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+
+            const Spacer(),
+
+            // Top avatar (female user being called)
+            _buildAvatar(
+              widget.user.avatar,
+              widget.user.name,
+              widget.user.name,
+              true,
+            ),
+
+            const SizedBox(height: 20),
+
+            // Connecting line
+            Container(
+              width: 2,
+              height: 80,
+              color: Colors.grey.shade300,
+            ),
+
+            const SizedBox(height: 20),
+
+            // Bottom avatar (current user - You)
+            _buildAvatar(
+              currentUser?.avatar,
+              currentUser?.name ?? 'You',
+              'You',
+              false,
+            ),
+
+            const SizedBox(height: 40),
+
+            // "Connecting to [name]" text
+            Text(
+              'Connecting to ${widget.user.name}',
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // Status text
+            if (!_isConnecting)
+              Text(
+                _status,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                ),
+              ),
+
+            const Spacer(),
+
+            // Cancel button
+            Padding(
+              padding: const EdgeInsets.only(bottom: 50),
+              child: TextButton(
+                onPressed: _cancelRequest,
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
+    ),
     );
   }
 }

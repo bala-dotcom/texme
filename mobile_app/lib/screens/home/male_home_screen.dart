@@ -28,6 +28,22 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
   List<FemaleUser> _females = [];
   bool _isLoading = false;
   bool _isLoadingRandom = false;
+  
+  // Language filter
+  String? _selectedLanguage;
+  final List<Map<String, String>> _languages = [
+    {'code': 'all', 'name': 'All', 'native': 'All'},
+    {'code': 'en', 'name': 'English', 'native': 'English'},
+    {'code': 'hi', 'name': 'Hindi', 'native': 'हिंदी'},
+    {'code': 'ta', 'name': 'Tamil', 'native': 'தமிழ்'},
+    {'code': 'te', 'name': 'Telugu', 'native': 'తెలుగు'},
+    {'code': 'kn', 'name': 'Kannada', 'native': 'ಕನ್ನಡ'},
+    {'code': 'ml', 'name': 'Malayalam', 'native': 'മലയാളം'},
+    {'code': 'mr', 'name': 'Marathi', 'native': 'मराठी'},
+    {'code': 'bn', 'name': 'Bengali', 'native': 'বাংলা'},
+    {'code': 'gu', 'name': 'Gujarati', 'native': 'ગુજરાતી'},
+    {'code': 'pa', 'name': 'Punjabi', 'native': 'ਪੰਜਾਬੀ'},
+  ];
 
   @override
   void initState() {
@@ -82,10 +98,10 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
     }
   }
 
-  Future<void> _loadFemales() async {
+  Future<void> _loadFemales({String? language}) async {
     setState(() => _isLoading = true);
 
-    final response = await _api.getFemales();
+    final response = await _api.getFemales(language: language);
 
     if (response.success && response.data['users'] != null) {
       final List users = response.data['users'];
@@ -95,6 +111,13 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
     }
 
     setState(() => _isLoading = false);
+  }
+  
+  void _onLanguageSelected(String languageCode) {
+    setState(() {
+      _selectedLanguage = languageCode == 'all' ? null : languageCode;
+    });
+    _loadFemales(language: _selectedLanguage);
   }
 
   void _randomConnect() {
@@ -108,6 +131,30 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
   }
 
   void _connectToUser(FemaleUser user) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = auth.user;
+    
+    // Check if user has enough coins (minimum 10 coins required as per backend settings)
+    if ((currentUser?.coinBalance ?? 0) < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You have not enough coins'),
+          backgroundColor: AppColors.warning,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const CoinPurchaseScreen()),
+      ).then((_) {
+        // Refresh profile when returning from recharge
+        if (mounted) {
+          Provider.of<AuthProvider>(context, listen: false).refreshProfile();
+        }
+      });
+      return;
+    }
+
     // Navigate directly to connecting screen
     Navigator.push(
       context,
@@ -118,6 +165,31 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
   }
 
   Future<void> _sendChatRequest(FemaleUser user) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentUser = auth.user;
+
+    // Check if user has enough coins
+    if ((currentUser?.coinBalance ?? 0) < 10) {
+      Navigator.pop(context); // Close bottom sheet
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You have not enough coins'),
+          backgroundColor: AppColors.warning,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const CoinPurchaseScreen()),
+      ).then((_) {
+        // Refresh profile when returning from recharge
+        if (mounted) {
+          Provider.of<AuthProvider>(context, listen: false).refreshProfile();
+        }
+      });
+      return;
+    }
+
     Navigator.pop(context); // Close bottom sheet
 
     final response = await _api.sendChatRequest(user.id);
@@ -185,13 +257,11 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  image: const DecorationImage(
+                    image: AssetImage('assets/icons/app_icon.png'),
+                    fit: BoxFit.cover,
+                  ),
                   borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.chat_bubble_rounded,
-                  color: Colors.white,
-                  size: 24,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -293,9 +363,48 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
             ),
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.md),
 
-        // Users Grid
+        // Language Filter Chips
+        SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            itemCount: _languages.length,
+            itemBuilder: (context, index) {
+              final lang = _languages[index];
+              final isSelected = (_selectedLanguage == null && lang['code'] == 'all') ||
+                  _selectedLanguage == lang['code'];
+              
+              return Padding(
+                padding: EdgeInsets.only(right: index < _languages.length - 1 ? 8 : 0),
+                child: GestureDetector(
+                  onTap: () => _onLanguageSelected(lang['code']!),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.primary : AppColors.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? AppColors.primary : AppColors.border,
+                      ),
+                    ),
+                    child: Text(
+                      lang['name']!,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
         Expanded(
           child: _isLoading
               ? const Center(
@@ -321,7 +430,7 @@ class _MaleHomeScreenState extends State<MaleHomeScreen> {
                       ),
                     )
                   : RefreshIndicator(
-                      onRefresh: _loadFemales,
+                      onRefresh: () => _loadFemales(language: _selectedLanguage),
                       child: GridView.builder(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.md,
@@ -430,9 +539,8 @@ class _UserPreviewSheet extends StatelessWidget {
           CircleAvatar(
             radius: 50,
             backgroundColor: AppColors.backgroundSecondary,
-            backgroundImage:
-                user.avatar != null ? NetworkImage(user.avatar!) : null,
-            child: user.avatar == null
+            backgroundImage: AuthProvider.getAvatarImage(user.avatar),
+            child: (user.avatar == null || user.avatar!.isEmpty)
                 ? Text(
                     user.name[0].toUpperCase(),
                     style: AppTextStyles.h1.copyWith(color: AppColors.primary),
@@ -544,12 +652,18 @@ class _UserImageCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // User Image or Placeholder
-              if (user.avatar != null)
-                Image.network(
-                  user.avatar!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                )
+              if (user.avatar != null && user.avatar!.isNotEmpty)
+                user.avatar!.startsWith('assets/')
+                    ? Image.asset(
+                        user.avatar!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                      )
+                    : Image.network(
+                        user.avatar!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                      )
               else
                 _buildPlaceholder(),
 
@@ -651,18 +765,18 @@ class _UserImageCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    // Location
+                    // Languages
                     Row(
                       children: [
                         const Icon(
-                          Icons.location_on,
+                          Icons.language,
                           color: Colors.white70,
                           size: 14,
                         ),
-                        const SizedBox(width: 2),
+                        const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            user.location ?? 'India',
+                            user.languageNames,
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,

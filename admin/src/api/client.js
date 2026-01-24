@@ -99,4 +99,12 @@ export const settingsApi = {
     updatePaymentGateway: (gateway, config) => client.post('/admin/settings/payment-gateway', { gateway, config }),
 };
 
+// Coin Package APIs
+export const coinPackagesApi = {
+    list: () => client.get('/admin/coin-packages'),
+    create: (data) => client.post('/admin/coin-packages', data),
+    update: (id, data) => client.put(`/admin/coin-packages/${id}`, data),
+    delete: (id) => client.delete(`/admin/coin-packages/${id}`),
+};
+
 export default client;

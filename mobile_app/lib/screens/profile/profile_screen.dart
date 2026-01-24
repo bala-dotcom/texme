@@ -10,6 +10,8 @@ import 'privacy_settings_screen.dart';
 import 'terms_of_service_screen.dart';
 import 'transaction_history_screen.dart';
 import 'help_support_screen.dart';
+import 'guidelines_screen.dart';
+import 'refund_policy_screen.dart';
 
 /// Profile Screen
 class ProfileScreen extends StatelessWidget {
@@ -41,9 +43,8 @@ class ProfileScreen extends StatelessWidget {
                 CircleAvatar(
                   radius: 50,
                   backgroundColor: AppColors.backgroundSecondary,
-                  backgroundImage:
-                      user.avatar != null ? NetworkImage(user.avatar!) : null,
-                  child: user.avatar == null
+                  backgroundImage: AuthProvider.getAvatarImage(auth.user?.avatar),
+                  child: (auth.user?.avatar == null || auth.user!.avatar!.isEmpty)
                       ? Text(
                           user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
                           style: AppTextStyles.h1.copyWith(
@@ -138,32 +139,9 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: AppSpacing.xl),
 
                 // Menu Items
-                // Wallet/Coins based on user type
-                if (user.isMale)
-                  _MenuItem(
-                    icon: Icons.monetization_on,
-                    title: 'Buy Coins',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CoinPurchaseScreen()),
-                      );
-                    },
-                  )
-                else
-                  _MenuItem(
-                    icon: Icons.account_balance_wallet,
-                    title: 'My Wallet',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const WalletScreen()),
-                      );
-                    },
-                  ),
                 _MenuItem(
                   icon: Icons.history,
-                  title: user.isMale ? 'Purchase History' : 'Earning History',
+                  title: user.isMale ? 'Transaction History' : 'Earning History',
                   onTap: () {
                     Navigator.push(
                       context,
@@ -198,6 +176,26 @@ class ProfileScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const TermsOfServiceScreen()),
+                    );
+                  },
+                ),
+                _MenuItem(
+                  icon: Icons.gavel_outlined,
+                  title: 'Community Guidelines',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GuidelinesScreen()),
+                    );
+                  },
+                ),
+                _MenuItem(
+                  icon: Icons.assignment_return_outlined,
+                  title: 'Refund & Cancellation',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RefundPolicyScreen()),
                     );
                   },
                 ),

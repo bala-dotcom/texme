@@ -38,7 +38,7 @@ class Setting extends Model
     /**
      * Set a setting value
      */
-    public static function setValue(string $key, mixed $value, string $description = null): void
+    public static function setValue(string $key, mixed $value, ?string $description = null): void
     {
         self::updateOrCreate(
             ['key' => $key],
@@ -68,11 +68,11 @@ class Setting extends Model
     }
 
     /**
-     * Get female earning ratio
+     * Get female earning per minute (₹)
      */
-    public static function getFemaleEarningRatio(): float
+    public static function getFemaleEarningPerMinute(): float
     {
-        return (float) self::getValue('female_earning_ratio', 0.36);
+        return (float) self::getValue('female_earning_per_minute', 3.0);
     }
 
     /**
@@ -80,7 +80,7 @@ class Setting extends Model
      */
     public static function getMinWithdrawal(): int
     {
-        return (int) self::getValue('min_withdrawal', 500);
+        return (int) self::getValue('minimum_withdrawal', 500);
     }
 
     /**

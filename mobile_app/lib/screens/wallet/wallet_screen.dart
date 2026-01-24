@@ -37,6 +37,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
     // Load balance
     final balanceResponse = await _api.getWalletBalance();
+    debugPrint('💰 Wallet balance response: ${balanceResponse.success}');
+    debugPrint('💰 Wallet balance data: ${balanceResponse.data}');
     if (balanceResponse.success) {
       setState(() {
         _balance =
@@ -48,7 +50,10 @@ class _WalletScreenState extends State<WalletScreen> {
         _minWithdrawal =
             double.tryParse(balanceResponse.data['min_withdrawal'].toString()) ?? 500;
         _hasBankDetails = balanceResponse.data['has_bank_details'] ?? false;
+        debugPrint('💰 Parsed balance: $_balance, totalEarned: $_totalEarned, totalWithdrawn: $_totalWithdrawn');
       });
+    } else {
+      debugPrint('💰 Failed to load balance: ${balanceResponse.message}');
     }
 
     // Load history
@@ -186,44 +191,19 @@ class _WalletScreenState extends State<WalletScreen> {
                             ),
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                          Row(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Total Earned',
-                                      style: AppTextStyles.caption.copyWith(
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    Text(
-                                      '₹${_totalEarned.toStringAsFixed(0)}',
-                                      style: AppTextStyles.h4.copyWith(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                'Total Withdrawn',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: Colors.white70,
                                 ),
                               ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Total Withdrawn',
-                                      style: AppTextStyles.caption.copyWith(
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    Text(
-                                      '₹${_totalWithdrawn.toStringAsFixed(0)}',
-                                      style: AppTextStyles.h4.copyWith(
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                '₹${_totalWithdrawn.toStringAsFixed(0)}',
+                                style: AppTextStyles.h4.copyWith(
+                                  color: Colors.white,
                                 ),
                               ),
                             ],
@@ -319,6 +299,7 @@ class _TransactionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPositive = transaction.type == 'earning';
+    final isWithdrawal = transaction.type == 'withdrawal';
     
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -326,19 +307,19 @@ class _TransactionItem extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: (isPositive ? AppColors.success : AppColors.error)
+          color: (isPositive ? AppColors.success : AppColors.warning)
               .withOpacity(0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(
-          isPositive ? Icons.add : Icons.remove,
-          color: isPositive ? AppColors.success : AppColors.error,
+          isPositive ? Icons.add : Icons.account_balance_wallet,
+          color: isPositive ? AppColors.success : AppColors.warning,
         ),
       ),
       title: Text(
         isPositive
             ? 'Chat Earning'
-            : transaction.type == 'withdrawal'
+            : isWithdrawal
                 ? 'Withdrawal'
                 : 'Deduction',
         style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
@@ -352,9 +333,9 @@ class _TransactionItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            '${isPositive ? '+' : '-'}₹${transaction.amount.toStringAsFixed(2)}',
+            '${isPositive ? '+' : ''}₹${transaction.amount.toStringAsFixed(2)}',
             style: AppTextStyles.bodyMedium.copyWith(
-              color: isPositive ? AppColors.success : AppColors.error,
+              color: isPositive ? AppColors.success : AppColors.warning,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -440,32 +421,16 @@ class _WithdrawalSheetState extends State<_WithdrawalSheet> {
           const SizedBox(height: AppSpacing.lg),
 
           // Amount Input
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  label: 'Amount',
-                  hint: 'Enter amount',
-                  controller: _amountController,
-                  keyboardType: TextInputType.number,
-                  prefix: const Padding(
-                    padding: EdgeInsets.only(left: 16),
-                    child: Text('₹', style: TextStyle(fontSize: 18)),
-                  ),
-                  onChanged: _validate,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              TextButton(
-                onPressed: _setMax,
-                child: const Text('MAX'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Min: ₹${widget.minAmount.toStringAsFixed(0)} | Max: ₹${widget.maxAmount.toStringAsFixed(0)}',
-            style: AppTextStyles.caption,
+          CustomTextField(
+            label: 'Amount',
+            hint: 'Enter amount',
+            controller: _amountController,
+            keyboardType: TextInputType.number,
+            prefix: const Padding(
+              padding: EdgeInsets.only(left: 16),
+              child: Text('₹', style: TextStyle(fontSize: 18)),
+            ),
+            onChanged: _validate,
           ),
           const SizedBox(height: AppSpacing.xl),
 

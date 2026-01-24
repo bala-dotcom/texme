@@ -14,6 +14,7 @@ import {
     Bell,
     ChevronDown,
     Mic,
+    Coins,
 } from 'lucide-react';
 
 const navigation = [
@@ -21,6 +22,7 @@ const navigation = [
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Voice Verifications', href: '/voice-verifications', icon: Mic },
     { name: 'Withdrawals', href: '/withdrawals', icon: Wallet },
+    { name: 'Coins', href: '/coins', icon: Coins },
     { name: 'Reports', href: '/reports', icon: Flag },
     { name: 'Transactions', href: '/transactions', icon: CreditCard },
     { name: 'Settings', href: '/settings', icon: Settings },

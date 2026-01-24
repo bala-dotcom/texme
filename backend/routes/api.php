@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\WithdrawalController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\CoinPackageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +39,9 @@ Route::prefix('webhooks')->group(function () {
     Route::post('/payu', [PaymentController::class, 'payuWebhook']);
     Route::post('/cashfree', [PaymentController::class, 'cashfreeWebhook']);
 });
+
+// Coins (Public)
+Route::get('/coins/packages', [CoinController::class, 'packages']);
 
 // ========== PROTECTED ROUTES (Auth Required) ==========
 Route::middleware('auth:sanctum')->group(function () {
@@ -83,10 +87,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{chatId}/messages', [ChatController::class, 'messages']);
     });
 
-    // Coins (Male users)
+    // Coins (Protected)
     Route::prefix('coins')->group(function () {
         Route::get('/balance', [CoinController::class, 'balance']);
-        Route::get('/packages', [CoinController::class, 'packages']);
         Route::post('/purchase', [CoinController::class, 'initiatePurchase']);
         Route::get('/history', [CoinController::class, 'history']);
     });
@@ -94,7 +97,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Wallet (Female users)
     Route::prefix('wallet')->group(function () {
         Route::get('/balance', [WalletController::class, 'balance']);
-        Route::get('/history', [WalletController::class, 'history']);
+        Route::get('/history', [WalletController::class, 'history']); // Withdrawal history only
+        Route::get('/earnings', [WalletController::class, 'earningHistory']); // Earning history
         Route::post('/withdraw', [WalletController::class, 'requestWithdrawal']);
         Route::get('/withdrawals', [WalletController::class, 'withdrawalHistory']);
     });
@@ -183,6 +187,8 @@ Route::prefix('admin')->group(function () {
             Route::post('/rates', [SettingsController::class, 'updateRates']);
             Route::post('/payment-gateway', [SettingsController::class, 'updatePaymentGateway']);
         });
+
+        // Coin Packages
+        Route::apiResource('coin-packages', CoinPackageController::class);
     });
 });
-

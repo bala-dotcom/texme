@@ -38,8 +38,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         });
       }
     } else {
-      // Load earning/wallet history for females
-      final response = await _api.getWalletHistory();
+      // Load chat earnings history for females
+      final response = await _api.getEarningHistory();
       if (response.success && response.data != null) {
         final transactions = response.data['transactions'] as List? ?? [];
         setState(() {
@@ -58,7 +58,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isMale ? 'Purchase History' : 'Earning History'),
+        title: Text(isMale ? 'Transaction History' : 'Earning History'),
         centerTitle: true,
       ),
       body: _isLoading
@@ -139,6 +139,7 @@ class _TransactionCard extends StatelessWidget {
     Color color;
     String title;
     String subtitle;
+    String displayStatus = status; // Default to API status
     
     if (isMale) {
       // Male: Coin transactions
@@ -148,12 +149,14 @@ class _TransactionCard extends StatelessWidget {
           color = AppColors.success;
           title = '+$coins Coins';
           subtitle = 'Purchased for ₹$amount';
+          displayStatus = 'added';
           break;
         case 'spent':
-          icon = Icons.remove_circle;
+          icon = Icons.chat_bubble;
           color = AppColors.error;
           title = '-$coins Coins';
           subtitle = description.isNotEmpty ? description : 'Chat';
+          displayStatus = 'deducted';
           break;
         default:
           icon = Icons.monetization_on;
@@ -165,19 +168,21 @@ class _TransactionCard extends StatelessWidget {
       // Female: Wallet transactions
       switch (type) {
         case 'earning':
-          icon = Icons.add_circle;
+          icon = Icons.chat_bubble;
           color = AppColors.success;
-          title = '+₹$amount';
+          title = '₹$amount';
           subtitle = description.isNotEmpty ? description : 'Chat earning';
+          displayStatus = 'earned';
           break;
         case 'withdrawal':
-          icon = Icons.remove_circle;
+          icon = Icons.account_balance_wallet;
           color = AppColors.warning;
-          title = '-₹$amount';
-          subtitle = 'Withdrawn';
+          title = '₹$amount';
+          subtitle = description.isNotEmpty ? description : 'Withdrawn';
+          displayStatus = 'withdrawn';
           break;
         default:
-          icon = Icons.account_balance_wallet;
+          icon = Icons.monetization_on;
           color = AppColors.primary;
           title = '₹$amount';
           subtitle = description;
@@ -244,18 +249,18 @@ class _TransactionCard extends StatelessWidget {
                   color: AppColors.textLight,
                 ),
               ),
-              if (status.isNotEmpty)
+              if (displayStatus.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.only(top: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(status).withOpacity(0.1),
+                    color: _getStatusColor(displayStatus).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    status.toUpperCase(),
+                    displayStatus.toUpperCase(),
                     style: AppTextStyles.caption.copyWith(
-                      color: _getStatusColor(status),
+                      color: _getStatusColor(displayStatus),
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
@@ -288,10 +293,14 @@ class _TransactionCard extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'completed':
       case 'success':
+      case 'added':
+      case 'earned':
         return AppColors.success;
       case 'pending':
+      case 'withdrawn':
         return AppColors.warning;
       case 'failed':
+      case 'deducted':
         return AppColors.error;
       default:
         return AppColors.textSecondary;

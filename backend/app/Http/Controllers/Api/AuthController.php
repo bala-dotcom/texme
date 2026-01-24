@@ -9,6 +9,8 @@ use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -158,23 +160,124 @@ class AuthController extends Controller
     }
 
     /**
-     * Verify using Truecaller
+     * Verify using Truecaller OAuth
      */
     public function truecallerVerify(Request $request): JsonResponse
     {
         $request->validate([
-            'payload' => 'required|string',
-            'signature' => 'required|string',
+            'authorization_code' => 'required|string',
+            'code_verifier' => 'required|string',
         ]);
 
-        // TODO: Implement Truecaller SDK verification
-        // For now, return error to fallback to OTP
-        return response()->json([
-            'success' => false,
-            'message' => 'Truecaller verification not available. Please use OTP.',
-            'use_otp' => true,
-        ], 400);
+        try {
+            // Exchange authorization code for access token
+            $clientId = config('services.truecaller.client_id');
+
+            $tokenResponse = Http::asForm()->post('https://oauth-account-noneu.truecaller.com/v1/token', [
+                'grant_type' => 'authorization_code',
+                'client_id' => $clientId,
+                'code' => $request->authorization_code,
+                'code_verifier' => $request->code_verifier,
+            ]);
+
+            if (!$tokenResponse->successful()) {
+                Log::error('Truecaller token exchange failed', [
+                    'status' => $tokenResponse->status(),
+                    'body' => $tokenResponse->json(),
+                    'client_id' => $clientId,
+                    'has_code' => !empty($request->authorization_code),
+                    'has_verifier' => !empty($request->code_verifier),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Truecaller verification failed. Please try OTP.',
+                    'use_otp' => true,
+                    'debug_error' => $tokenResponse->json(),
+                ], 400);
+            }
+
+            $tokenData = $tokenResponse->json();
+            $accessToken = $tokenData['access_token'] ?? null;
+
+            if (!$accessToken) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to get access token from Truecaller.',
+                    'use_otp' => true,
+                ], 400);
+            }
+
+            // Fetch user profile from Truecaller
+            $profileResponse = Http::withToken($accessToken)
+                ->get('https://oauth-account-noneu.truecaller.com/v1/userinfo');
+
+            if (!$profileResponse->successful()) {
+                Log::error('Truecaller profile fetch failed', [
+                    'status' => $profileResponse->status(),
+                    'body' => $profileResponse->body(),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch profile from Truecaller.',
+                    'use_otp' => true,
+                ], 400);
+            }
+
+            $profile = $profileResponse->json();
+            $phone = $profile['phone_number'] ?? null;
+
+            // Remove country code if present (keep last 10 digits for India)
+            if ($phone && strlen($phone) > 10) {
+                $phone = substr($phone, -10);
+            }
+
+            if (!$phone) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not retrieve phone number from Truecaller.',
+                    'use_otp' => true,
+                ], 400);
+            }
+
+            // Check if user exists
+            $user = User::where('phone', $phone)->first();
+
+            if ($user) {
+                // Existing user - login
+                $token = $user->createToken('auth-token')->plainTextToken;
+                $user->update(['status' => 'online']);
+
+                return response()->json([
+                    'success' => true,
+                    'is_new_user' => false,
+                    'phone' => $phone,
+                    'token' => $token,
+                    'user' => $this->formatUserResponse($user),
+                ]);
+            } else {
+                // New user - return registration token
+                return response()->json([
+                    'success' => true,
+                    'is_new_user' => true,
+                    'phone' => $phone,
+                    'registration_token' => encrypt($phone . '|' . now()->timestamp),
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Truecaller verification error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Truecaller verification failed. Please try OTP.',
+                'use_otp' => true,
+            ], 500);
+        }
     }
+
 
     /**
      * Complete registration (new user)

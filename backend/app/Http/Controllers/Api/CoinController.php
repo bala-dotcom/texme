@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Transaction;
+use App\Models\CoinPackage;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -38,7 +39,7 @@ class CoinController extends Controller
      */
     public function packages(Request $request): JsonResponse
     {
-        $packages = Setting::getCoinPackages();
+        $packages = CoinPackage::active()->get();
 
         return response()->json([
             'success' => true,
@@ -62,33 +63,32 @@ class CoinController extends Controller
         }
 
         $request->validate([
-            'package_index' => 'required|integer|min:0',
+            'package_id' => 'required|exists:coin_packages,id',
         ]);
 
-        $packages = Setting::getCoinPackages();
-        
-        if (!isset($packages[$request->package_index])) {
+        $package = CoinPackage::findOrFail($request->package_id);
+
+        if (!$package->is_active) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid package',
+                'message' => 'This package is no longer available',
             ], 400);
         }
 
-        $package = $packages[$request->package_index];
         $gateway = Setting::getActivePaymentGateway();
 
         // Create pending transaction
         $transaction = Transaction::create([
             'user_id' => $user->id,
             'type' => 'coin_purchase',
-            'amount' => $package['price'],
-            'coins' => $package['coins'] + ($package['bonus'] ?? 0),
+            'amount' => $package->price,
+            'coins' => $package->coins + ($package->bonus ?? 0),
             'gateway' => $gateway,
             'status' => 'pending',
         ]);
 
         // Generate order based on gateway
-        $orderData = $this->createGatewayOrder($gateway, $transaction, $package);
+        $orderData = $this->createGatewayOrder($gateway, $transaction, $package->toArray());
 
         if (!$orderData) {
             $transaction->markAsFailed();
@@ -130,14 +130,37 @@ class CoinController extends Controller
 
         return response()->json([
             'success' => true,
-            'transactions' => $transactions->map(fn($t) => [
-                'id' => $t->id,
-                'type' => $t->type,
-                'amount' => $t->amount,
-                'coins' => $t->coins,
-                'status' => $t->status,
-                'created_at' => $t->created_at,
-            ]),
+            'transactions' => $transactions->map(function ($t) {
+                // Get partner name for deductions
+                $partnerName = null;
+                $description = '';
+                $displayType = $t->type;
+
+                if ($t->type === 'coin_deduction') {
+                    $displayType = 'spent';
+                    // Get partner name from metadata
+                    $partnerUserId = $t->metadata['partner_user_id'] ?? null;
+                    if ($partnerUserId) {
+                        $partner = User::find($partnerUserId);
+                        $partnerName = $partner ? $partner->name : null;
+                    }
+                    $description = $partnerName ? "Chat with $partnerName" : 'Chat';
+                } else if ($t->type === 'coin_purchase') {
+                    $displayType = 'purchase';
+                    $description = 'Coin Purchase';
+                }
+
+                return [
+                    'id' => $t->id,
+                    'type' => $displayType,
+                    'amount' => $t->amount,
+                    'coins' => $t->coins,
+                    'status' => $t->status,
+                    'description' => $description,
+                    'partner_name' => $partnerName,
+                    'created_at' => $t->created_at,
+                ];
+            }),
             'pagination' => [
                 'current_page' => $transactions->currentPage(),
                 'last_page' => $transactions->lastPage(),
@@ -210,8 +233,8 @@ class CoinController extends Controller
         $amount = $package['price'];
         $productInfo = $package['label'] . ' - ' . $transaction->coins . ' Coins';
 
-        $hashString = $merchantKey . '|' . $txnId . '|' . $amount . '|' . $productInfo . '|' . 
-                      $transaction->user->name . '|' . $transaction->user->email . '|||||||||||' . $salt;
+        $hashString = $merchantKey . '|' . $txnId . '|' . $amount . '|' . $productInfo . '|' .
+            $transaction->user->name . '|' . $transaction->user->email . '|||||||||||' . $salt;
         $hash = strtolower(hash('sha512', $hashString));
 
         return [
@@ -241,14 +264,14 @@ class CoinController extends Controller
             'x-client-secret' => $secretKey,
             'Content-Type' => 'application/json',
         ])->post('https://api.cashfree.com/pg/orders', [
-            'order_id' => $orderId,
-            'order_amount' => $package['price'],
-            'order_currency' => 'INR',
-            'customer_details' => [
-                'customer_id' => 'user_' . $transaction->user_id,
-                'customer_phone' => $transaction->user->phone,
-            ],
-        ]);
+                    'order_id' => $orderId,
+                    'order_amount' => $package['price'],
+                    'order_currency' => 'INR',
+                    'customer_details' => [
+                        'customer_id' => 'user_' . $transaction->user_id,
+                        'customer_phone' => $transaction->user->phone,
+                    ],
+                ]);
 
         if ($response->successful()) {
             $data = $response->json();

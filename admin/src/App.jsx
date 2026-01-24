@@ -9,6 +9,7 @@ import Withdrawals from './pages/Withdrawals';
 import Reports from './pages/Reports';
 import Transactions from './pages/Transactions';
 import Settings from './pages/Settings';
+import Coins from './pages/Coins';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -107,6 +108,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Transactions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coins"
+        element={
+          <ProtectedRoute>
+            <Coins />
           </ProtectedRoute>
         }
       />

@@ -11,17 +11,32 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 /// Coin Package Model
 class CoinPackage {
+  final int id;
+  final String label;
   final int coins;
   final int price;
-  final int discount;
-  final bool isPopular;
+  final int bonus;
+  final bool isActive;
 
   const CoinPackage({
+    required this.id,
+    required this.label,
     required this.coins,
     required this.price,
-    required this.discount,
-    this.isPopular = false,
+    this.bonus = 0,
+    this.isActive = true,
   });
+
+  factory CoinPackage.fromJson(Map<String, dynamic> json) {
+    return CoinPackage(
+      id: json['id'],
+      label: json['label'] ?? 'Coin Pack',
+      coins: json['coins'],
+      price: json['price'],
+      bonus: json['bonus'] ?? 0,
+      isActive: json['is_active'] ?? true,
+    );
+  }
 }
 
 /// Coin Purchase Screen (Male Only)
@@ -38,25 +53,18 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
   // Razorpay instance (null on web)
   Razorpay? _razorpay;
   
-  // Available coin packages
-  static const List<CoinPackage> _packages = [
-    CoinPackage(coins: 40, price: 25, discount: 30),
-    CoinPackage(coins: 90, price: 49, discount: 30),
-    CoinPackage(coins: 200, price: 64, discount: 30),
-    CoinPackage(coins: 440, price: 129, discount: 20),
-    CoinPackage(coins: 1200, price: 299, discount: 30, isPopular: true),
-    CoinPackage(coins: 3500, price: 699, discount: 40),
-  ];
-
+  List<CoinPackage> _packages = [];
   int _selectedIndex = 0;
-  bool _isLoading = false;
+  bool _isLoading = true;
+  bool _isProcessing = false;
 
-  CoinPackage get _selectedPackage => _packages[_selectedIndex];
+  CoinPackage? get _selectedPackage => _packages.isNotEmpty ? _packages[_selectedIndex] : null;
 
   @override
   void initState() {
     super.initState();
     _initRazorpay();
+    _loadPackages();
   }
 
   void _initRazorpay() {
@@ -68,6 +76,29 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
     }
   }
 
+  Future<void> _loadPackages() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await _api.getCoinPackages();
+      if (response.success) {
+        final List<dynamic> packagesJson = response.data['packages'];
+        setState(() {
+          _packages = packagesJson.map((j) => CoinPackage.fromJson(j)).toList();
+          _isLoading = false;
+        });
+      } else {
+        throw Exception(response.message);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load packages: $e')),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   void dispose() {
     _razorpay?.clear();
@@ -76,11 +107,6 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
 
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     print('Payment Success: ${response.paymentId}');
-    
-    // NOTE:
-    // Backend credits coins after gateway confirmation (typically webhook).
-    // For local/dev testing, webhooks won't reach your machine unless you use a public URL.
-    // So we just refresh profile and show a confirmation message.
     if (!mounted) return;
 
     await Provider.of<AuthProvider>(context, listen: false).refreshProfile();
@@ -97,7 +123,6 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
 
   void _handlePaymentError(PaymentFailureResponse response) {
     print('Payment Error: ${response.code} - ${response.message}');
-    
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -106,38 +131,65 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
         ),
       );
     }
-    setState(() => _isLoading = false);
+    setState(() => _isProcessing = false);
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
     print('External Wallet: ${response.walletName}');
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('External wallet selected: ${response.walletName}'),
-          backgroundColor: AppColors.info,
-        ),
-      );
-    }
   }
 
   Future<void> _purchaseCoins() async {
-    setState(() => _isLoading = true);
+    if (_selectedPackage == null) return;
+    
+    setState(() => _isProcessing = true);
 
-    // Simulate a small delay for UX
-    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      final response = await _api.initiateCoinPurchase(_selectedPackage!.id);
+      
+      if (response.success) {
+        final gateway = response.data['gateway'];
+        final order = response.data['order'];
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ ${_selectedPackage.coins} coins added successfully!'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      setState(() => _isLoading = false);
-      Navigator.pop(context);
+        if (gateway == 'razorpay') {
+          var options = {
+            'key': order['key_id'],
+            'amount': order['amount'],
+            'name': order['name'],
+            'description': order['description'],
+            'order_id': order['order_id'],
+            'prefill': {
+              'contact': Provider.of<AuthProvider>(context, listen: false).user?.phone ?? '',
+            },
+            'external': {
+              'wallets': ['paytm']
+            }
+          };
+
+          _razorpay?.open(options);
+        } else {
+          // Other gateways or web flow would be handled here
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Gateway not supported on this device')),
+            );
+          }
+          setState(() => _isProcessing = false);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.message ?? 'Failed to initiate purchase')),
+          );
+        }
+        setState(() => _isProcessing = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -158,7 +210,6 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
         title: Text('Wallet', style: AppTextStyles.h3),
         centerTitle: true,
         actions: [
-          // Current Balance
           Container(
             margin: const EdgeInsets.only(right: AppSpacing.md),
             padding: const EdgeInsets.symmetric(
@@ -187,82 +238,88 @@ class _CoinPurchaseScreenState extends State<CoinPurchaseScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+        : Column(
         children: [
-          // Coin Packages Grid
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.85,
-                ),
-                itemCount: _packages.length,
-                itemBuilder: (context, index) {
-                  final package = _packages[index];
-                  final isSelected = index == _selectedIndex;
-                  
-                  return _CoinPackageCard(
-                    package: package,
-                    isSelected: isSelected,
-                    onTap: () => setState(() => _selectedIndex = index),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Purchase Button
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadow,
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _purchaseCoins,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    elevation: 0,
+          if (_packages.isEmpty)
+            const Expanded(
+              child: Center(child: Text('No packages available')),
+            )
+          else
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.85,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        )
-                      : Text(
-                          'Add ${_selectedPackage.coins} Coins',
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  itemCount: _packages.length,
+                  itemBuilder: (context, index) {
+                    final package = _packages[index];
+                    final isSelected = index == _selectedIndex;
+                    
+                    return _CoinPackageCard(
+                      package: package,
+                      isSelected: isSelected,
+                      onTap: () => setState(() => _selectedIndex = index),
+                    );
+                  },
                 ),
               ),
             ),
-          ),
+
+          if (_packages.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.shadow,
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isProcessing ? null : _purchaseCoins,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isProcessing
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'Add ${_selectedPackage?.coins ?? 0} Coins',
+                            style: AppTextStyles.bodyLarge.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -306,8 +363,8 @@ class _CoinPackageCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Popular Badge
-            if (package.isPopular)
+            // Bonus Badge
+            if (package.bonus > 0)
               Positioned(
                 top: 0,
                 right: 0,
@@ -323,20 +380,13 @@ class _CoinPackageCard extends StatelessWidget {
                       bottomLeft: Radius.circular(AppRadius.sm),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star, color: Colors.white, size: 10),
-                      const SizedBox(width: 2),
-                      Text(
-                        'Popular',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    '+${package.bonus} Bonus',
+                    style: AppTextStyles.caption.copyWith(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),

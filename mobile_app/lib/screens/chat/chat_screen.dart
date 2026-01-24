@@ -11,6 +11,9 @@ import '../../widgets/common/widgets.dart';
 import '../../main.dart';
 import '../home/home_screen.dart';
 import '../wallet/coin_purchase_screen.dart';
+import 'package:screen_protector/screen_protector.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/services.dart';
 
 /// Chat Screen
 class ChatScreen extends StatefulWidget {
@@ -60,6 +63,7 @@ class _ChatScreenState extends State<ChatScreen> {
   double? _rate;
   Timer? _countdownTimer;
   int _remainingSeconds = -1; // -1 means sync is pending
+  static const _securityChannel = MethodChannel('com.texme.app/security');
 
   @override
   void initState() {
@@ -75,6 +79,57 @@ class _ChatScreenState extends State<ChatScreen> {
       _startCountdown(); // Start HH:MM:SS countdown for both
     }
     _startUpdates();
+    _secureScreen();
+    _initScreenshotDetection();
+  }
+
+  Future<void> _secureScreen() async {
+    try {
+      if (Platform.isAndroid) {
+        debugPrint('🛡️ Enabling FLAG_SECURE via MethodChannel');
+        await _securityChannel.invokeMethod('enableSecure');
+        debugPrint('🛡️ FLAG_SECURE enabled');
+      }
+      await ScreenProtector.preventScreenshotOn();
+      await ScreenProtector.protectDataLeakageWithColor(AppColors.primary);
+    } catch (e) {
+      debugPrint('❌ Security Error in _secureScreen: $e');
+    }
+  }
+
+  Future<void> _clearSecureScreen() async {
+    try {
+      if (Platform.isAndroid) {
+        debugPrint('🛡️ Disabling FLAG_SECURE via MethodChannel');
+        await _securityChannel.invokeMethod('disableSecure');
+        debugPrint('🛡️ FLAG_SECURE disabled');
+      }
+      await ScreenProtector.preventScreenshotOff();
+      await ScreenProtector.protectDataLeakageOff();
+    } catch (e) {
+      debugPrint('❌ Security Error in _clearSecureScreen: $e');
+    }
+  }
+
+  void _initScreenshotDetection() {
+    ScreenProtector.addListener(() {
+      _showScreenshotToast();
+    }, (isCaptured) {
+      if (isCaptured) {
+        _showScreenshotToast();
+      }
+    });
+  }
+
+  void _showScreenshotToast() {
+    Fluttertoast.showToast(
+      msg: "this app also did take a screen shot",
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: Colors.red,
+      textColor: Colors.white,
+      fontSize: 14.0,
+    );
   }
 
   void _startCountdown() {
@@ -125,36 +180,21 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showInsufficientCoinsDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Insufficient Coins'),
-        content: const Text('Your coins have run out. Please add more coins to continue the chat.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _endChat();
-            },
-            child: const Text('End Chat'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => CoinPurchaseScreen()),
-              ).then((_) {
-                Provider.of<AuthProvider>(this.context, listen: false).refreshProfile().then((_) {
-                  _startCountdown(); // Resume with new balance
-                });
-              });
-            },
-            child: const Text('Add Coins'),
-          ),
-        ],
+    if (!mounted) return;
+    
+    _endChat(); // End the chat first
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You have not enough coins'),
+        backgroundColor: AppColors.warning,
+        duration: Duration(seconds: 3),
       ),
+    );
+    
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const CoinPurchaseScreen()),
     );
   }
 
@@ -175,6 +215,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _countdownTimer?.cancel();
     _recordingTimer?.cancel();
     _voiceService.cancelRecording();
+    _clearSecureScreen();
+    ScreenProtector.removeListener();
     super.dispose();
   }
 
@@ -220,7 +262,12 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } else if (response.data?['chat_ended'] == true) {
       // Chat ended due to insufficient coins
-      _showChatEndedDialog();
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (auth.isMale) {
+        _showInsufficientCoinsDialog();
+      } else {
+        _showChatEndedDialog();
+      }
     }
   }
 
@@ -232,6 +279,13 @@ class _ChatScreenState extends State<ChatScreen> {
     if (response.success && response.data['messages'] != null) {
       final List msgs = response.data['messages'];
       final newMessages = msgs.map((m) => Message.fromJson(m)).toList();
+      
+      // Debug: log voice messages
+      for (var msg in newMessages) {
+        if (msg.isVoice) {
+          debugPrint('📥 Loaded voice message id=${msg.id}, voiceUrl=${msg.voiceUrl}');
+        }
+      }
       
       setState(() {
         // Keep optimistic messages that are still sending or failed
@@ -480,7 +534,9 @@ class _ChatScreenState extends State<ChatScreen> {
     
     if (response.success && response.data['message'] != null) {
       try {
+        debugPrint('📤 Voice message API response: ${response.data['message']}');
         final realMessage = Message.fromJson(response.data['message']);
+        debugPrint('📤 Parsed voice message - voiceUrl: ${realMessage.voiceUrl}');
         setState(() {
           final index = _messages.indexWhere((m) => m.id == tempMessage.id);
           if (index != -1) {
@@ -672,9 +728,7 @@ class _ChatScreenState extends State<ChatScreen> {
             CircleAvatar(
               radius: 18,
               backgroundColor: AppColors.backgroundSecondary,
-              backgroundImage: widget.partnerAvatar != null
-                  ? NetworkImage(widget.partnerAvatar!)
-                  : null,
+              backgroundImage: AuthProvider.getAvatarImage(widget.partnerAvatar),
               child: widget.partnerAvatar == null
                   ? Text(
                       widget.partnerName[0].toUpperCase(),
@@ -1216,8 +1270,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
   }
 
   void _togglePlayback() {
+    debugPrint('🔊 Toggle playback - voiceUrl: ${widget.message.voiceUrl}');
+    debugPrint('🔊 Message type: ${widget.message.type}, isVoice: ${widget.message.isVoice}');
     if (widget.message.voiceUrl != null) {
       _voiceService.togglePlayback(widget.message.voiceUrl!);
+    } else {
+      debugPrint('🔊 ERROR: voiceUrl is null! Cannot play.');
     }
   }
 

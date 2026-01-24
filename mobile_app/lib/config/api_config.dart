@@ -43,6 +43,7 @@ class ApiConfig {
   // Endpoints - Wallet
   static const String walletBalance = '/wallet/balance';
   static const String walletHistory = '/wallet/history';
+  static const String walletEarnings = '/wallet/earnings';
   static const String walletWithdraw = '/wallet/withdraw';
   static const String walletWithdrawals = '/wallet/withdrawals';
 

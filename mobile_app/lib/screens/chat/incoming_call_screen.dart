@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/chat.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/fcm_service.dart';
@@ -31,15 +33,13 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
   bool _isProcessing = false;
   Timer? _timeoutTimer;
   Timer? _pollTimer;
+  Timer? _dotTimer;
   int _remainingSeconds = 30;
+  int _dotCount = 0;
 
   // Ripple animation controllers
-  late AnimationController _rippleController1;
-  late AnimationController _rippleController2;
-  late AnimationController _rippleController3;
-  late Animation<double> _rippleAnimation1;
-  late Animation<double> _rippleAnimation2;
-  late Animation<double> _rippleAnimation3;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -47,44 +47,28 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     _setupAnimation();
     _startTimeout();
     _startPollingForCancellation();
+    _startDotAnimation();
     _playRingtone();
   }
 
   void _setupAnimation() {
-    // Create staggered ripple animations
-    _rippleController1 = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
-    )..repeat();
-    
-    _rippleController2 = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    );
-    
-    _rippleController3 = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    );
+    )..repeat(reverse: true);
 
-    _rippleAnimation1 = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _rippleController1, curve: Curves.easeOut),
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    
-    _rippleAnimation2 = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _rippleController2, curve: Curves.easeOut),
-    );
-    
-    _rippleAnimation3 = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _rippleController3, curve: Curves.easeOut),
-    );
+  }
 
-    // Start staggered animations
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) _rippleController2.repeat();
-    });
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) _rippleController3.repeat();
+  void _startDotAnimation() {
+    _dotTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted) {
+        setState(() {
+          _dotCount = (_dotCount + 1) % 4;
+        });
+      }
     });
   }
 
@@ -124,6 +108,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
           debugPrint('📞 Male cancelled the request');
           _pollTimer?.cancel();
           _timeoutTimer?.cancel();
+          _dotTimer?.cancel();
           _stopRingtone();
           
           // Show message and dismiss
@@ -169,6 +154,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     setState(() => _isProcessing = true);
     _timeoutTimer?.cancel();
     _pollTimer?.cancel();
+    _dotTimer?.cancel();
     _stopRingtone();
     
     debugPrint('📞 In-app accept: accepting chat ${widget.request.chatId}');
@@ -217,6 +203,7 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     setState(() => _isProcessing = true);
     _timeoutTimer?.cancel();
     _pollTimer?.cancel();
+    _dotTimer?.cancel();
     _stopRingtone();
     
     // Cancel notification and mark as handled
@@ -238,216 +225,227 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
   void dispose() {
     _timeoutTimer?.cancel();
     _pollTimer?.cancel();
-    _rippleController1.dispose();
-    _rippleController2.dispose();
-    _rippleController3.dispose();
+    _dotTimer?.cancel();
+    _pulseController.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
 
-  // Build a single ripple circle
-  Widget _buildRipple(Animation<double> animation, double maxSize) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final size = 60 + (maxSize - 60) * animation.value;
-        return Container(
-          width: size,
-          height: size,
+  Widget _buildAvatar(String? avatarUrl, String name, String label, bool isPulsing) {
+    return Column(
+      children: [
+        AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: isPulsing && !_isProcessing ? _pulseAnimation.value : 1.0,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                    width: 3,
+                  ),
+                ),
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white,
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? Image.network(
+                            avatarUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildPlaceholder(name),
+                          )
+                        : _buildPlaceholder(name),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.15 * (1 - animation.value)),
+            color: const Color(0xFF6C5CE7),
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
-      },
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaceholder(String name) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 40,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final currentUser = auth.user;
+
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2DD4BF), Color(0xFF14B8A6)], // Teal gradient
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: AppSpacing.xl),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 60),
 
-              // Header
-              Text(
-                'INCOMING CHAT',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: Colors.white.withOpacity(0.8),
-                  letterSpacing: 2.0,
-                  fontWeight: FontWeight.bold,
+            // "Connecting" text with animated dots
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Incoming Chat',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              
-              // Timer
-              Text(
-                '0:${_remainingSeconds.toString().padLeft(2, '0')}',
-                style: AppTextStyles.h4.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-
-              const Spacer(),
-
-              // Avatar with glowing ripple
-              SizedBox(
-                width: 300,
-                height: 300,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    _buildRipple(_rippleAnimation1, 280),
-                    _buildRipple(_rippleAnimation2, 220),
-                    _buildRipple(_rippleAnimation3, 160),
-                    
-                    Container(
-                      width: 100,
-                      height: 100,
+                const SizedBox(width: 8),
+                // Animated dots
+                Row(
+                  children: List.generate(3, (index) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.2),
-                        border: Border.all(color: Colors.white, width: 2),
+                        color: index <= _dotCount 
+                            ? const Color(0xFF6C5CE7) 
+                            : Colors.grey.shade300,
                       ),
-                      child: widget.request.maleAvatar != null
-                          ? CircleAvatar(
-                              backgroundImage: NetworkImage(widget.request.maleAvatar!),
-                            )
-                          : const Icon(Icons.person, size: 60, color: Colors.white),
-                    ),
-                  ],
+                    );
+                  }),
                 ),
-              ),
+              ],
+            ),
 
-              const SizedBox(height: AppSpacing.lg),
+            const Spacer(),
 
-              // User Info
-              Text(
-                widget.request.maleName,
-                style: AppTextStyles.h2.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+            // Top avatar (male user calling)
+            _buildAvatar(
+              widget.request.maleAvatar,
+              widget.request.maleName,
+              widget.request.maleName,
+              true,
+            ),
+
+            const SizedBox(height: 40),
+
+            // "[name] wants to chat with you" text
+            Text(
+              '${widget.request.maleName} wants to chat with you',
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'wants to chat with you',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-              
-              const SizedBox(height: AppSpacing.lg),
-              
-              // Earning Badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(color: Colors.white.withOpacity(0.3)),
-                ),
+            ),
+
+            const Spacer(),
+
+            // Action Buttons
+            if (!_isProcessing)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.monetization_on, color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Earn ${widget.request.potentialEarningFormatted}',
-                      style: AppTextStyles.h4.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    // Decline
+                    Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _declineRequest,
+                          child: Container(
+                            width: 72,
+                            height: 72,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFEF4444), // Red
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white, size: 32),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text('Decline', style: TextStyle(color: Colors.grey.shade600)),
+                      ],
+                    ),
+                    
+                    // Accept
+                    Column(
+                      children: [
+                        GestureDetector(
+                          onTap: _acceptRequest,
+                          child: Container(
+                            width: 72,
+                            height: 72,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981), // Green
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: const Icon(Icons.check, color: Colors.white, size: 36),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text('Accept', style: TextStyle(color: Colors.grey.shade600)),
+                      ],
                     ),
                   ],
                 ),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.only(bottom: 60),
+                child: CircularProgressIndicator(color: Color(0xFF6C5CE7)),
               ),
 
-              const Spacer(flex: 2),
-
-              // Action Buttons
-              if (!_isProcessing)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Decline
-                      Column(
-                        children: [
-                          GestureDetector(
-                            onTap: _declineRequest,
-                            child: Container(
-                              width: 72,
-                              height: 72,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEF4444), // Red
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 10,
-                                    offset: Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: const Icon(Icons.close, color: Colors.white, size: 32),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Decline', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white)),
-                        ],
-                      ),
-                      
-                      // Accept
-                      Column(
-                        children: [
-                          GestureDetector(
-                            onTap: _acceptRequest,
-                            child: Container(
-                              width: 72,
-                              height: 72,
-                              decoration: const BoxDecoration(
-                                color: Colors.white, 
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 10,
-                                    offset: Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: const Icon(Icons.check, color: Color(0xFF10B981), size: 36), // Green check
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Accept', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white)),
-                        ],
-                      ),
-                    ],
-                  ),
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 60),
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-            ],
-          ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

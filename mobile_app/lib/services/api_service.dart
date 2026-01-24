@@ -73,6 +73,21 @@ class ApiService {
     }
   }
 
+  Future<ApiResponse> verifyWithTruecaller({
+    required String authorizationCode,
+    required String codeVerifier,
+  }) async {
+    try {
+      final response = await _dio.post('/auth/truecaller-verify', data: {
+        'authorization_code': authorizationCode,
+        'code_verifier': codeVerifier,
+      });
+      return ApiResponse.success(response.data);
+    } catch (e) {
+      return _handleError(e);
+    }
+  }
+
   Future<ApiResponse> register({
     required String registrationToken,
     required String userType,
@@ -82,6 +97,7 @@ class ApiService {
     File? avatar,
     String? avatarUrl,
     File? voiceVerification,
+    List<String>? languages,
   }) async {
     try {
       print('DEBUG: Starting registration for $userType');
@@ -96,6 +112,7 @@ class ApiService {
           if (age != null) 'age': age,
           if (bio != null) 'bio': bio,
           if (avatarUrl != null) 'avatar': avatarUrl,
+          if (languages != null && languages.isNotEmpty) 'languages': languages.join(','),
           'voice_verification': await MultipartFile.fromFile(
             voiceVerification.path,
             filename: 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
@@ -115,6 +132,7 @@ class ApiService {
           if (age != null) 'age': age,
           if (bio != null) 'bio': bio,
           if (avatarUrl != null) 'avatar': avatarUrl,
+          if (languages != null && languages.isNotEmpty) 'languages': languages.join(','),
         };
 
         print('DEBUG: Sending registration request with data: $data');
@@ -195,11 +213,14 @@ class ApiService {
 
   // ========== USER ENDPOINTS ==========
 
-  Future<ApiResponse> getFemales({int page = 1}) async {
+  Future<ApiResponse> getFemales({int page = 1, String? language}) async {
     try {
       final response = await _dio.get(
         ApiConfig.listFemales,
-        queryParameters: {'page': page},
+        queryParameters: {
+          'page': page,
+          if (language != null) 'language': language,
+        },
       );
       return ApiResponse.success(response.data);
     } catch (e) {
@@ -460,10 +481,10 @@ class ApiService {
     }
   }
 
-  Future<ApiResponse> initiateCoinPurchase(int packageIndex) async {
+  Future<ApiResponse> initiateCoinPurchase(int packageId) async {
     try {
       final response = await _dio.post(ApiConfig.coinPurchase, data: {
-        'package_index': packageIndex,
+        'package_id': packageId,
       });
       return ApiResponse.success(response.data);
     } catch (e) {
@@ -522,6 +543,18 @@ class ApiService {
     try {
       final response = await _dio.get(
         ApiConfig.walletHistory,
+        queryParameters: {'page': page},
+      );
+      return ApiResponse.success(response.data);
+    } catch (e) {
+      return _handleError(e);
+    }
+  }
+
+  Future<ApiResponse> getEarningHistory({int page = 1}) async {
+    try {
+      final response = await _dio.get(
+        ApiConfig.walletEarnings,
         queryParameters: {'page': page},
       );
       return ApiResponse.success(response.data);

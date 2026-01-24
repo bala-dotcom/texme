@@ -164,17 +164,17 @@ class _SplashScreenState extends State<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_rounded,
-                size: 60,
-                color: AppColors.primary,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/icons/app_icon.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 20),

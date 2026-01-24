@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
+import '../../providers/auth_provider.dart';
 
 /// Primary Button
 class PrimaryButton extends StatelessWidget {
@@ -212,7 +213,7 @@ class UserCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: AppColors.backgroundSecondary,
-                  backgroundImage: avatar != null ? NetworkImage(avatar!) : null,
+                  backgroundImage: AuthProvider.getAvatarImage(avatar),
                   child: avatar == null
                       ? Text(
                           name.isNotEmpty ? name[0].toUpperCase() : '?',

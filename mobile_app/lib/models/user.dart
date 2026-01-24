@@ -30,6 +30,7 @@ class User {
   final bool isInChat;
   final String? voiceStatus;
   final String? voiceVerificationUrl;
+  final List<String>? languages;
 
   // Male specific
   final int? coinBalance;
@@ -66,6 +67,7 @@ class User {
     this.totalWithdrawn,
     this.ratePerMinute,
     this.hasBankDetails,
+    this.languages,
   });
 
   bool get isMale => userType == 'male';
@@ -99,6 +101,7 @@ class User {
       totalWithdrawn: _parseDouble(json['total_withdrawn']),
       ratePerMinute: json['rate_per_minute'] != null ? _parseDouble(json['rate_per_minute']) : 10.0,
       hasBankDetails: json['has_bank_details'] ?? false,
+      languages: json['languages'] != null ? List<String>.from(json['languages']) : null,
     );
   }
 
@@ -126,6 +129,7 @@ class User {
       'total_withdrawn': totalWithdrawn,
       'rate_per_minute': ratePerMinute,
       'has_bank_details': hasBankDetails,
+      'languages': languages,
     };
   }
 }
@@ -141,6 +145,7 @@ class FemaleUser {
   final String status;
   final bool isAvailable;
   final double ratePerMinute;
+  final List<String>? languages;
   bool isLiked; // Track locally for now
 
   FemaleUser({
@@ -153,6 +158,7 @@ class FemaleUser {
     required this.status,
     required this.isAvailable,
     required this.ratePerMinute,
+    this.languages,
     this.isLiked = false,
   });
 
@@ -168,8 +174,28 @@ class FemaleUser {
       status: json['status'] ?? 'offline',
       isAvailable: json['is_available'] ?? false,
       ratePerMinute: _parseDouble(json['rate_per_minute'], 10.0),
+      languages: json['languages'] != null ? List<String>.from(json['languages']) : null,
       isLiked: json['is_liked'] ?? false,
     );
+  }
+
+  String get languageNames {
+    if (languages == null || languages!.isEmpty) return 'India';
+
+    final Map<String, String> langMap = {
+      'en': 'English',
+      'hi': 'Hindi',
+      'ta': 'Tamil',
+      'te': 'Telugu',
+      'kn': 'Kannada',
+      'ml': 'Malayalam',
+      'mr': 'Marathi',
+      'bn': 'Bengali',
+      'gu': 'Gujarati',
+      'pa': 'Punjabi',
+    };
+
+    return languages!.map((code) => langMap[code] ?? code).join(', ');
   }
 }
 

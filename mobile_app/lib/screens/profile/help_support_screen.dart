@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/theme.dart';
+import 'guidelines_screen.dart';
+import 'refund_policy_screen.dart';
+import 'terms_of_service_screen.dart';
 
 /// Help & Support Screen
 class HelpSupportScreen extends StatelessWidget {
@@ -143,6 +146,41 @@ class HelpSupportScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
 
+            // Legal Section
+            _SupportCard(
+              icon: Icons.gavel_outlined,
+              iconColor: AppColors.primary,
+              title: '⚖️ Policies & Guidelines',
+              description: 'Important legal documents and community rules.',
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.md),
+                  _LegalLink(
+                    title: 'Community Guidelines',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GuidelinesScreen()),
+                    ),
+                  ),
+                  _LegalLink(
+                    title: 'Refund & Cancellation',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RefundPolicyScreen()),
+                    ),
+                  ),
+                  _LegalLink(
+                    title: 'Terms of Service',
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TermsOfServiceScreen()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+
             // Report Issue Button
             SizedBox(
               width: double.infinity,
@@ -162,7 +200,7 @@ class HelpSupportScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
+            const SizedBox(height: AppSpacing.lg),
           ],
         ),
       ),
@@ -388,6 +426,26 @@ class _SafetyTip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Legal Link Widget
+class _LegalLink extends StatelessWidget {
+  final String title;
+  final VoidCallback onTap;
+
+  const _LegalLink({required this.title, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, style: AppTextStyles.bodyMedium),
+      trailing: const Icon(Icons.chevron_right, size: 18),
+      onTap: onTap,
+      dense: true,
+      visualDensity: VisualDensity.compact,
     );
   }
 }

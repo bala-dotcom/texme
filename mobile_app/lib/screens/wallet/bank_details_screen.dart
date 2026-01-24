@@ -21,6 +21,27 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
 
   bool _isLoading = false;
   bool _isLoadingDetails = true;
+  String? _ifscError;
+
+  /// Validate IFSC code format: 4 letters + 0 + 6 alphanumeric
+  bool _isValidIfsc(String ifsc) {
+    if (ifsc.isEmpty) return false;
+    final regex = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$');
+    return regex.hasMatch(ifsc.toUpperCase());
+  }
+
+  void _validateIfsc(String value) {
+    final upper = value.toUpperCase();
+    if (upper.isEmpty) {
+      setState(() => _ifscError = 'IFSC code is required');
+    } else if (upper.length != 11) {
+      setState(() => _ifscError = 'IFSC code must be 11 characters');
+    } else if (!_isValidIfsc(upper)) {
+      setState(() => _ifscError = 'Invalid IFSC format (e.g., SBIN0001234)');
+    } else {
+      setState(() => _ifscError = null);
+    }
+  }
 
   @override
   void initState() {
@@ -59,6 +80,18 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
 
   Future<void> _saveBankDetails() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Validate IFSC
+    _validateIfsc(_ifscController.text);
+    if (_ifscError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_ifscError!),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -169,6 +202,17 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
                   controller: _ifscController,
                   keyboardType: TextInputType.text,
                   maxLength: 11,
+                  errorText: _ifscError,
+                  onChanged: (value) {
+                    // Auto convert to uppercase
+                    if (value != value.toUpperCase()) {
+                      _ifscController.value = TextEditingValue(
+                        text: value.toUpperCase(),
+                        selection: TextSelection.collapsed(offset: value.length),
+                      );
+                    }
+                    _validateIfsc(value);
+                  },
                 ),
                 const SizedBox(height: AppSpacing.lg),
 

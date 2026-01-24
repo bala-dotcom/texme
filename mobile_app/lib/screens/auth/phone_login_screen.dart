@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/widgets.dart';
+import '../../services/truecaller_service.dart';
 import '../profile/terms_of_service_screen.dart';
 import '../profile/privacy_policy_screen.dart';
 import 'gender_selection_screen.dart';
@@ -11,7 +12,7 @@ import '../home/home_screen.dart';
 import 'otp_screen.dart';
 import 'pending_verification_screen.dart';
 
-/// Phone Login Screen
+/// Phone Login Screen with Truecaller Integration
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
 
@@ -23,11 +24,113 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isValid = false;
+  bool _termsAccepted = true;
+  
+  // Truecaller state
+  final TruecallerService _truecallerService = TruecallerService();
+  bool _isTruecallerAvailable = false;
+  bool _isTruecallerLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTruecaller();
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _truecallerService.dispose();
     super.dispose();
+  }
+
+  Future<void> _initTruecaller() async {
+    await _truecallerService.initialize();
+    
+    // Setup callback handler first
+    _truecallerService.onResult = _handleTruecallerResult;
+    
+    final isAvailable = await _truecallerService.isAvailable();
+    
+    if (mounted) {
+      setState(() {
+        _isTruecallerAvailable = isAvailable;
+      });
+      
+      debugPrint('DEBUG: Truecaller isAvailable: $isAvailable');
+      
+      // Auto-trigger Truecaller if available
+      if (isAvailable) {
+        // Wait for UI to settle before showing popup
+        Future.delayed(const Duration(milliseconds: 500), () async {
+          if (mounted) {
+            setState(() => _isTruecallerLoading = true);
+            await _truecallerService.startVerification();
+          }
+        });
+      } else {
+        // Show a message if it's not available to help debug
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Truecaller not available on this device/app combo'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleTruecallerResult(TruecallerResult result) async {
+    if (!mounted) return;
+    
+    setState(() => _isTruecallerLoading = false);
+    
+    if (result.isSuccess) {
+      // Verify with backend
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final success = await authProvider.verifyWithTruecaller(
+        authorizationCode: result.authorizationCode!,
+        codeVerifier: result.codeVerifier!,
+      );
+      
+      if (!mounted) return;
+      
+      if (success) {
+        _handleSuccess();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.error ?? 'Truecaller verification failed'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } else if (result.isNotAvailable) {
+      // Truecaller not available, show OTP flow
+      debugPrint('Truecaller not available, using OTP flow');
+    } else if (result.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error!),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _startTruecallerVerification() async {
+    if (!_termsAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please accept Terms of Service & Privacy Policy'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+    
+    setState(() => _isTruecallerLoading = true);
+    await _truecallerService.startVerification();
   }
 
   void _validatePhone(String value) {
@@ -90,33 +193,32 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Consumer<AuthProvider>(
           builder: (context, auth, child) {
             return LoadingOverlay(
-              isLoading: auth.isLoading,
+              isLoading: auth.isLoading || _isTruecallerLoading,
               child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 40),
 
-                      // Logo
                       Container(
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          image: const DecorationImage(
+                            image: AssetImage('assets/icons/app_icon.png'),
+                            fit: BoxFit.cover,
+                          ),
                           borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.chat_bubble_rounded,
-                          size: 48,
-                          color: Colors.white,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
@@ -137,7 +239,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 60),
+                      const SizedBox(height: 40),
 
                       // Welcome Text
                       Text(
@@ -146,12 +248,13 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'Enter your phone number to continue',
+                        'Verify your phone number to continue',
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
+
 
                       // Phone Input
                       Container(
@@ -159,9 +262,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                           color: AppColors.backgroundSecondary,
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           border: Border.all(
-                            color: _isValid
-                                ? AppColors.primary
-                                : AppColors.border,
+                            color: _isValid ? AppColors.primary : AppColors.border,
                             width: _isValid ? 2 : 1,
                           ),
                         ),
@@ -207,6 +308,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                                 decoration: const InputDecoration(
                                   hintText: 'Enter phone number',
                                   border: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
                                   counterText: '',
                                   contentPadding: EdgeInsets.symmetric(
                                     horizontal: AppSpacing.md,
@@ -232,22 +335,33 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
                       // Continue Button
                       PrimaryButton(
-                        text: 'Continue',
-                        onPressed: _isValid ? _sendOtp : null,
+                        text: 'Send OTP',
+                        onPressed: (_isValid && _termsAccepted) ? _sendOtp : null,
                         isLoading: auth.isLoading,
                       ),
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(height: AppSpacing.md),
 
-                      // Terms
-                      Text(
-                        'By continuing, you agree to our',
-                        style: AppTextStyles.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
+                      // Terms Checkbox with Links
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Checkbox(
+                              value: _termsAccepted,
+                              onChanged: (value) {
+                                setState(() {
+                                  _termsAccepted = value ?? false;
+                                });
+                              },
+                              activeColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
                           GestureDetector(
                             onTap: () {
                               Navigator.push(
@@ -295,3 +409,4 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     );
   }
 }
+

@@ -89,4 +89,9 @@ return [
         'server_key' => env('FIREBASE_SERVER_KEY'),
     ],
 
+    // Truecaller
+    'truecaller' => [
+        'client_id' => env('TRUECALLER_CLIENT_ID'),
+    ],
+
 ];

@@ -16,12 +16,14 @@ class VoiceVerificationScreen extends StatefulWidget {
   final String userType;
   final String? bio;
   final String? avatarUrl;
+  final List<String>? languages;
 
   const VoiceVerificationScreen({
     super.key,
     required this.userType,
     this.bio,
     this.avatarUrl,
+    this.languages,
   });
 
   @override
@@ -207,6 +209,7 @@ class _VoiceVerificationScreenState extends State<VoiceVerificationScreen> {
       bio: widget.bio,
       avatarUrl: widget.avatarUrl,
       voiceVerification: File(_recordingPath!),
+      languages: widget.languages,
     );
 
     if (success && mounted) {

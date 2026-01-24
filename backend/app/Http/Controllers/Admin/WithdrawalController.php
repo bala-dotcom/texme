@@ -239,13 +239,15 @@ class WithdrawalController extends Controller
         }
 
         DB::transaction(function () use ($withdrawal, $request) {
-            // If was processing, refund the balance
+            // ALWAYS refund the balance when rejecting/canceling a withdrawal
+            $user = $withdrawal->user;
+            $user->earning_balance += $withdrawal->amount;
+
+            // If was processing (approved), also reverse total_withdrawn
             if ($withdrawal->status === 'processing') {
-                $user = $withdrawal->user;
-                $user->earning_balance += $withdrawal->amount;
                 $user->total_withdrawn -= $withdrawal->amount;
-                $user->save();
             }
+            $user->save();
 
             $withdrawal->status = 'rejected';
             $withdrawal->processed_at = now();

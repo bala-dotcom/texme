@@ -16,15 +16,8 @@ export default function Settings() {
 
     // Settings state
     const [coinsPerMinute, setCoinsPerMinute] = useState(10);
-    const [femaleEarningRatio, setFemaleEarningRatio] = useState(0.36);
+    const [femaleEarningPerMinute, setFemaleEarningPerMinute] = useState(3.0);
     const [minimumWithdrawal, setMinimumWithdrawal] = useState(100);
-
-    const [coinPackages, setCoinPackages] = useState([
-        { coins: 40, price: 25, label: 'Starter' },
-        { coins: 100, price: 59, label: 'Popular' },
-        { coins: 200, price: 99, label: 'Best Value' },
-        { coins: 500, price: 199, label: 'Premium' },
-    ]);
 
     useEffect(() => {
         loadSettings();
@@ -37,11 +30,8 @@ export default function Settings() {
             const data = response.data.settings;
             if (data) {
                 setCoinsPerMinute(data.coins_per_minute || 10);
-                setFemaleEarningRatio(data.female_earning_ratio || 0.36);
+                setFemaleEarningPerMinute(data.female_earning_per_minute || 3.0);
                 setMinimumWithdrawal(data.minimum_withdrawal || 100);
-                if (data.coin_packages) {
-                    setCoinPackages(data.coin_packages);
-                }
             }
         } catch (error) {
             console.error('Load settings error:', error);
@@ -55,7 +45,7 @@ export default function Settings() {
         try {
             await settingsApi.updateRates({
                 coins_per_minute: coinsPerMinute,
-                female_earning_ratio: femaleEarningRatio,
+                female_earning_per_minute: femaleEarningPerMinute,
                 minimum_withdrawal: minimumWithdrawal,
             });
             alert('Settings saved successfully');
@@ -64,24 +54,6 @@ export default function Settings() {
         } finally {
             setSaving(false);
         }
-    };
-
-    const handleSavePackages = async () => {
-        setSaving(true);
-        try {
-            await settingsApi.updateCoinPackages(coinPackages);
-            alert('Coin packages saved successfully');
-        } catch (error) {
-            alert('Failed to save packages');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const updatePackage = (index, field, value) => {
-        const updated = [...coinPackages];
-        updated[index] = { ...updated[index], [field]: value };
-        setCoinPackages(updated);
     };
 
     if (loading) {
@@ -104,15 +76,14 @@ export default function Settings() {
             <div className="flex gap-2 border-b border-gray-200">
                 {[
                     { id: 'general', label: 'General', icon: SettingsIcon },
-                    { id: 'packages', label: 'Coin Packages', icon: Coins },
                     { id: 'payment', label: 'Payment', icon: CreditCard },
                 ].map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === tab.id
-                                ? 'border-[#6C5CE7] text-[#6C5CE7]'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            ? 'border-[#6C5CE7] text-[#6C5CE7]'
+                            : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                     >
                         <tab.icon className="w-4 h-4" />
@@ -144,25 +115,24 @@ export default function Settings() {
                             <p className="text-xs text-gray-500 mt-1">Number of coins deducted per minute of chat</p>
                         </div>
 
-                        {/* Female earning ratio */}
+                        {/* Female earning per minute */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Female Earning Ratio
+                                Female Earning per Minute (₹)
                             </label>
                             <div className="relative">
-                                <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                 <input
                                     type="number"
-                                    step="0.01"
+                                    step="0.5"
                                     min="0"
-                                    max="1"
-                                    value={femaleEarningRatio}
-                                    onChange={(e) => setFemaleEarningRatio(parseFloat(e.target.value) || 0)}
+                                    value={femaleEarningPerMinute}
+                                    onChange={(e) => setFemaleEarningPerMinute(parseFloat(e.target.value) || 0)}
                                     className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent outline-none"
                                 />
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
-                                Percentage of coin value that goes to female (0.36 = 36%)
+                                Amount in ₹ the female earns per minute of chat
                             </p>
                         </div>
 
@@ -189,56 +159,6 @@ export default function Settings() {
                             Save Changes
                         </button>
                     </div>
-                </div>
-            )}
-
-            {/* Coin Packages */}
-            {activeTab === 'packages' && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Coin Packages</h3>
-
-                    <div className="space-y-4">
-                        {coinPackages.map((pkg, index) => (
-                            <div key={index} className="flex gap-4 items-center p-4 bg-gray-50 rounded-lg">
-                                <div className="flex-1">
-                                    <label className="block text-xs text-gray-500 mb-1">Label</label>
-                                    <input
-                                        type="text"
-                                        value={pkg.label}
-                                        onChange={(e) => updatePackage(index, 'label', e.target.value)}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
-                                    />
-                                </div>
-                                <div className="w-24">
-                                    <label className="block text-xs text-gray-500 mb-1">Coins</label>
-                                    <input
-                                        type="number"
-                                        value={pkg.coins}
-                                        onChange={(e) => updatePackage(index, 'coins', parseInt(e.target.value) || 0)}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
-                                    />
-                                </div>
-                                <div className="w-24">
-                                    <label className="block text-xs text-gray-500 mb-1">Price (₹)</label>
-                                    <input
-                                        type="number"
-                                        value={pkg.price}
-                                        onChange={(e) => updatePackage(index, 'price', parseInt(e.target.value) || 0)}
-                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={handleSavePackages}
-                        disabled={saving}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-[#6C5CE7] text-white font-medium rounded-lg hover:bg-[#5A4BD5] disabled:opacity-50 mt-6"
-                    >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        Save Packages
-                    </button>
                 </div>
             )}
 
