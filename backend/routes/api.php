@@ -186,6 +186,7 @@ Route::prefix('admin')->group(function () {
             Route::post('/coin-packages', [SettingsController::class, 'updateCoinPackages']);
             Route::post('/rates', [SettingsController::class, 'updateRates']);
             Route::post('/payment-gateway', [SettingsController::class, 'updatePaymentGateway']);
+            Route::post('/legal', [SettingsController::class, 'updateLegalContent']);
         });
 
         // Coin Packages

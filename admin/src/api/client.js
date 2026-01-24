@@ -97,6 +97,7 @@ export const settingsApi = {
     updateCoinPackages: (packages) => client.post('/admin/settings/coin-packages', { packages }),
     updateRates: (rates) => client.post('/admin/settings/rates', rates),
     updatePaymentGateway: (gateway, config) => client.post('/admin/settings/payment-gateway', { gateway, config }),
+    updateLegal: (data) => client.post('/admin/settings/legal', data),
 };
 
 // Coin Package APIs

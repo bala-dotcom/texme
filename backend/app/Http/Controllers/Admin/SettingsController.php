@@ -156,4 +156,33 @@ class SettingsController extends Controller
             'active_gateway' => $request->active_payment_gateway,
         ]);
     }
+
+    /**
+     * Update legal content settings
+     */
+    public function updateLegalContent(Request $request): JsonResponse
+    {
+        $request->validate([
+            'privacy_policy_content' => 'nullable|string',
+            'terms_of_service_content' => 'nullable|string',
+        ]);
+
+        foreach ($request->only(['privacy_policy_content', 'terms_of_service_content']) as $key => $value) {
+            Setting::setValue($key, $value ?? '');
+        }
+
+        // Log action
+        AdminLog::create([
+            'admin_id' => $request->user()->id,
+            'action' => 'legal_content_update',
+            'description' => 'Updated legal content pages',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Legal content updated',
+        ]);
+    }
 }

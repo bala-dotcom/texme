@@ -7,6 +7,7 @@ import {
     Coins,
     Percent,
     CreditCard,
+    FileText,
 } from 'lucide-react';
 
 export default function Settings() {
@@ -18,6 +19,10 @@ export default function Settings() {
     const [coinsPerMinute, setCoinsPerMinute] = useState(10);
     const [femaleEarningPerMinute, setFemaleEarningPerMinute] = useState(3.0);
     const [minimumWithdrawal, setMinimumWithdrawal] = useState(100);
+
+    // Legal state
+    const [privacyPolicy, setPrivacyPolicy] = useState('');
+    const [termsOfService, setTermsOfService] = useState('');
 
     useEffect(() => {
         loadSettings();
@@ -32,6 +37,8 @@ export default function Settings() {
                 setCoinsPerMinute(data.coins_per_minute || 10);
                 setFemaleEarningPerMinute(data.female_earning_per_minute || 3.0);
                 setMinimumWithdrawal(data.minimum_withdrawal || 100);
+                setPrivacyPolicy(data.privacy_policy_content || '');
+                setTermsOfService(data.terms_of_service_content || '');
             }
         } catch (error) {
             console.error('Load settings error:', error);
@@ -51,6 +58,21 @@ export default function Settings() {
             alert('Settings saved successfully');
         } catch (error) {
             alert('Failed to save settings');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveLegal = async () => {
+        setSaving(true);
+        try {
+            await settingsApi.updateLegal({
+                privacy_policy_content: privacyPolicy,
+                terms_of_service_content: termsOfService,
+            });
+            alert('Legal pages saved successfully');
+        } catch (error) {
+            alert('Failed to save legal pages');
         } finally {
             setSaving(false);
         }
@@ -188,6 +210,52 @@ export default function Settings() {
                                 <li>RAZORPAY_WEBHOOK_SECRET</li>
                             </ul>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Legal Settings */}
+            {activeTab === 'legal' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Legal Pages Content</h3>
+
+                    <div className="space-y-6 max-w-2xl">
+                        {/* Privacy Policy */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Privacy Policy (HTML supported)
+                            </label>
+                            <textarea
+                                value={privacyPolicy}
+                                onChange={(e) => setPrivacyPolicy(e.target.value)}
+                                rows={10}
+                                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent outline-none font-mono text-sm"
+                                placeholder="<h3>Privacy Policy</h3><p>...</p>"
+                            />
+                        </div>
+
+                        {/* Terms of Service */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Terms of Service (HTML supported)
+                            </label>
+                            <textarea
+                                value={termsOfService}
+                                onChange={(e) => setTermsOfService(e.target.value)}
+                                rows={10}
+                                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#6C5CE7] focus:border-transparent outline-none font-mono text-sm"
+                                placeholder="<h3>Terms of Service</h3><p>...</p>"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleSaveLegal}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-[#6C5CE7] text-white font-medium rounded-lg hover:bg-[#5A4BD5] disabled:opacity-50"
+                        >
+                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            Save Pages
+                        </button>
                     </div>
                 </div>
             )}
