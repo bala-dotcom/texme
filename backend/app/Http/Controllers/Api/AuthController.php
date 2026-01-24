@@ -189,6 +189,7 @@ class AuthController extends Controller
             'bio' => 'nullable|string|max:500',
             'avatar' => 'nullable|string|max:255', // Avatar URL or path
             'voice_verification' => 'nullable|file|max:10240', // 10MB max, any audio format
+            'languages' => 'nullable|string', // Comma separated languages
         ]);
 
         // Decrypt and validate registration token
@@ -234,10 +235,11 @@ class AuthController extends Controller
             'avatar' => $avatarPath,
             'password' => Hash::make(str()->random(32)), // Random password for API-only auth
             'status' => 'online',
-            'account_status' => $request->user_type === 'female' ? 'pending' : 'active', // Females need admin approval
-            'is_verified' => $request->user_type === 'male', // Males auto-verified
+            'account_status' => $request->input('user_type') === 'female' ? 'pending' : 'active', // Females need admin approval
+            'is_verified' => $request->input('user_type') === 'male', // Males auto-verified
             'last_seen' => now(),
-            'voice_status' => $request->user_type === 'female' ? 'pending' : 'none',
+            'voice_status' => $request->input('user_type') === 'female' ? 'pending' : 'none',
+            'languages' => $request->input('languages') ? explode(',', $request->input('languages')) : null,
         ];
 
         if ($request->hasFile('voice_verification')) {
@@ -382,7 +384,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'age' => $user->age,
             'bio' => $user->bio,
-            'avatar' => $user->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : asset('storage/' . $user->avatar)) : null,
+            'avatar' => $this->formatAvatarUrl($user->avatar),
             'location' => $user->location,
             'status' => $user->status,
             'account_status' => $user->account_status,
@@ -408,4 +410,28 @@ class AuthController extends Controller
 
         return $base;
     }
+
+    /**
+     * Format avatar URL - handles http URLs, local Flutter assets, and storage paths
+     */
+    private function formatAvatarUrl(?string $avatar): ?string
+    {
+        if (!$avatar) {
+            return null;
+        }
+
+        // If it's already an HTTP URL, return as-is
+        if (str_starts_with($avatar, 'http')) {
+            return $avatar;
+        }
+
+        // If it's a local Flutter asset path (e.g., assets/images/avatars/avatar_1.png), return as-is
+        if (str_starts_with($avatar, 'assets/')) {
+            return $avatar;
+        }
+
+        // Otherwise, it's a storage path (uploaded file), prepend storage URL
+        return asset('storage/' . $avatar);
+    }
 }
+

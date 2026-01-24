@@ -25,11 +25,17 @@ class UserController extends Controller
             ], 403);
         }
 
-        $females = User::where('user_type', 'female')
+        $query = User::where('user_type', 'female')
             ->where('account_status', 'active')
             ->where('status', '!=', 'offline')
-            ->where('id', '!=', $user->id)
-            ->orderByRaw("CASE WHEN status = 'online' THEN 0 ELSE 1 END")
+            ->where('id', '!=', $user->id);
+
+        if ($request->has('language')) {
+            $language = $request->language;
+            $query->where('languages', 'like', '%' . $language . '%');
+        }
+
+        $females = $query->orderByRaw("CASE WHEN status = 'online' THEN 0 ELSE 1 END")
             ->orderBy('last_seen', 'desc')
             ->paginate(20);
 
@@ -196,9 +202,11 @@ class UserController extends Controller
         $request->validate([
             'account_name' => 'required|string|max:100',
             'account_number' => 'required|string|max:20',
-            'ifsc' => 'required|string|size:11',
+            'ifsc' => ['required', 'string', 'size:11', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/i'],
             'bank_name' => 'required|string|max:100',
             'upi_id' => 'nullable|string|max:50',
+        ], [
+            'ifsc.regex' => 'Invalid IFSC format (must be 4 letters + 0 + 6 alphanumerics, e.g., SBIN0001234)',
         ]);
 
         $user->setBankDetails([
@@ -277,13 +285,38 @@ class UserController extends Controller
             'name' => $user->name,
             'age' => $user->age,
             'bio' => $user->bio,
-            'avatar' => $user->avatar ? (str_starts_with($user->avatar, 'http') ? $user->avatar : asset('storage/' . $user->avatar)) : null,
+            'avatar' => $this->formatAvatarUrl($user->avatar),
             'location' => $user->location,
             'status' => $user->status,
             'is_available' => $user->status === 'online',
             'rate_per_minute' => $user->rate_per_minute,
+            'languages' => $user->languages,
         ];
     }
+
+    /**
+     * Format avatar URL - handles http URLs, local Flutter assets, and storage paths
+     */
+    private function formatAvatarUrl(?string $avatar): ?string
+    {
+        if (!$avatar) {
+            return null;
+        }
+
+        // If it's already an HTTP URL, return as-is
+        if (str_starts_with($avatar, 'http')) {
+            return $avatar;
+        }
+
+        // If it's a local Flutter asset path (e.g., assets/images/avatars/avatar_1.png), return as-is
+        if (str_starts_with($avatar, 'assets/')) {
+            return $avatar;
+        }
+
+        // Otherwise, it's a storage path (uploaded file), prepend storage URL
+        return asset('storage/' . $avatar);
+    }
+
 
     /**
      * Format male user data for female view (with potential earnings)
